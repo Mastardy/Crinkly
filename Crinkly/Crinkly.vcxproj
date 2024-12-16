@@ -89,15 +89,16 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Crinkly.cpp" />
-    <ClCompile Include="Hardware\Bus.cpp" />
-    <ClCompile Include="Hardware\MP6502.cpp" />
+    <ClCompile Include="GameBoyConsole.cpp" />
     <ClCompile Include="Utility\Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Hardware\Bus.hpp" />
-    <ClInclude Include="Hardware\MP6502.hpp" />
+    <ClInclude Include="GameBoyConsole.hpp" />
     <ClInclude Include="Utility\Types.hpp" />
     <ClInclude Include="Utility\Utils.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Hardware\" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
