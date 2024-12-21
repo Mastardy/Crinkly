@@ -95,16 +95,17 @@
     <ClCompile Include="Crinkly.cpp" />
     <ClCompile Include="GameBoyConsole.cpp" />
     <ClCompile Include="Hardware\Bus.cpp" />
+    <ClCompile Include="Hardware\Cartridge.cpp" />
+    <ClCompile Include="Hardware\CPU.cpp" />
     <ClCompile Include="Utility\Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameBoyConsole.hpp" />
     <ClInclude Include="Hardware\Bus.hpp" />
+    <ClInclude Include="Hardware\Cartridge.hpp" />
+    <ClInclude Include="Hardware\CPU.hpp" />
     <ClInclude Include="Utility\Types.hpp" />
     <ClInclude Include="Utility\Utils.hpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Hardware\" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
