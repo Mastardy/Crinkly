@@ -94,10 +94,12 @@
   <ItemGroup>
     <ClCompile Include="Crinkly.cpp" />
     <ClCompile Include="GameBoyConsole.cpp" />
+    <ClCompile Include="Hardware\Bus.cpp" />
     <ClCompile Include="Utility\Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameBoyConsole.hpp" />
+    <ClInclude Include="Hardware\Bus.hpp" />
     <ClInclude Include="Utility\Types.hpp" />
     <ClInclude Include="Utility\Utils.hpp" />
   </ItemGroup>
