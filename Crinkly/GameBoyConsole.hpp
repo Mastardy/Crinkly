@@ -11,13 +11,13 @@
 class GameBoyConsole
 {
 private: // Specifications
-    inline constexpr static double CPU_FREQUENCY = 4'194'304.0;
-    
-    inline constexpr static Size RESOLUTION_X = 160;
-    inline constexpr static Size RESOLUTION_Y = 144;
+    constexpr static double CPU_FREQUENCY = 4'194'304.0;
 
-    inline constexpr static Size MAX_SPRITES = 40;
-    inline constexpr static Size MAX_SPRITES_PER_LINE = 10;
+    constexpr static Size RESOLUTION_X = 160;
+    constexpr static Size RESOLUTION_Y = 144;
+
+    constexpr static Size MAX_SPRITES = 40;
+    constexpr static Size MAX_SPRITES_PER_LINE = 10;
 
 public:
     GameBoyConsole();

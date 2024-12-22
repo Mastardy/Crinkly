@@ -1,74 +1,76 @@
 #include "CPU.hpp"
 
-#include <iostream>
-
 CPU::CPU()
 {
-    m_Registers['A'] = 0;
-    m_Registers['B'] = 0;
-    m_Registers['C'] = 0;
-    m_Registers['D'] = 0;
-    m_Registers['E'] = 0;
-    m_Registers['F'] = 0;
-    m_Registers['H'] = 0;
-    m_Registers['L'] = 0;
-    
+    m_Registers[Register8::A] = 0;
+    m_Registers[Register8::B] = 0;
+    m_Registers[Register8::C] = 0;
+    m_Registers[Register8::D] = 0;
+    m_Registers[Register8::E] = 0;
+    m_Registers[Register8::F] = 0;
+    m_Registers[Register8::H] = 0;
+    m_Registers[Register8::L] = 0;
+
     m_SP = 0x0000;
     m_PC = 0x0000;
 }
 
-void CPU::VerifyRegister(char reg)
+U8 CPU::Register(Register8 reg)
 {
-    if (reg == 'A' || reg == 'B' || reg == 'C' || reg == 'D' || reg == 'E' || reg == 'F' || reg == 'H' || reg == 'L')
-        return;
-    std::cerr << "Invalid register: " << reg << '\n';
-    std::exit(1);
-}
-
-void CPU::VerifyRegister(const std::string& reg)
-{
-    if (reg == "AF" || reg == "BC" || reg == "DE" || reg == "HL" || reg == "SP" || reg == "PC")
-        return;
-    std::cerr << "Invalid register: " << reg << '\n';
-    std::exit(1);
-}
-
-U8 CPU::Register(char reg)
-{
-    VerifyRegister(reg);
     return m_Registers[reg];
 }
 
-U16 CPU::Register(const std::string& reg)
+U16 CPU::Register(Register16 reg)
 {
-    if (reg.size() == 1) return Register(reg[0]);
-    VerifyRegister(reg);
-    if (reg == "SP") return m_SP;
-    if (reg == "PC") return m_PC;
-    return static_cast<U16>(m_Registers[reg[0]] << 8) | m_Registers[reg[1]];    
+    switch (reg)
+    {
+    case Register16::SP:
+        return m_SP;
+    case Register16::PC:
+        return m_PC;
+    case Register16::AF:
+        return static_cast<U16>(m_Registers[Register8::A] << 8) | m_Registers[Register8::F];
+    case Register16::BC:
+        return static_cast<U16>(m_Registers[Register8::B] << 8) | m_Registers[Register8::C];        
+    case Register16::DE:
+        return static_cast<U16>(m_Registers[Register8::D] << 8) | m_Registers[Register8::E];
+    case Register16::HL:
+        return static_cast<U16>(m_Registers[Register8::H] << 8) | m_Registers[Register8::L];
+    }
+    
+    return 0;
 }
 
-void CPU::Register(char reg, U8 value)
+void CPU::Register(Register8 reg, const U8 value)
 {
-    VerifyRegister(reg);
     m_Registers[reg] = value;
 }
 
-void CPU::Register(const std::string& reg, U16 value)
+void CPU::Register(Register16 reg, const U16& value)
 {
-    if (reg.size() == 1)
+    switch (reg)
     {
-        Register(reg[0], static_cast<U8>(value | 0xFF));
-        return;
-    }
-    
-    VerifyRegister(reg);
-    
-    if (reg == "SP") m_SP = value;
-    else if (reg == "PC") m_PC = value;
-    else
-    {
-        m_Registers[reg[0]] = value >> 8;
-        m_Registers[reg[1]] = value & 0xFF;
+    case Register16::AF:
+        m_Registers[Register8::A] = value >> 8;
+        m_Registers[Register8::F] = value & 0xFF;
+        break;
+    case Register16::BC:
+        m_Registers[Register8::B] = value >> 8;
+        m_Registers[Register8::C] = value & 0xFF;
+        break;
+    case Register16::DE:
+        m_Registers[Register8::D] = value >> 8;
+        m_Registers[Register8::E] = value & 0xFF;
+        break;
+    case Register16::HL:
+        m_Registers[Register8::H] = value >> 8;
+        m_Registers[Register8::L] = value & 0xFF;
+        break;
+    case Register16::SP:
+        m_SP = value;
+        break;
+    case Register16::PC:
+        m_PC = value;
+        break;
     }
 }

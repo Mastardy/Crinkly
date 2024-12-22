@@ -8,19 +8,39 @@
 class CPU
 {
 public:
+    enum class Register8 : U8
+    {
+        A,
+        B,
+        C,
+        D,
+        E,
+        F,
+        H,
+        L
+    };
+
+    enum class Register16 : U8
+    {
+        AF,
+        BC,
+        DE,
+        HL,
+        SP,
+        PC
+    };
+    
+public:
     CPU();
 
-    static void VerifyRegister(char reg);
-    static void VerifyRegister(const std::string& reg);
+    U8 Register(Register8 reg);
+    U16 Register(Register16 reg);
     
-    U8 Register(char reg);
-    U16 Register(const std::string& reg);
-    
-    void Register(char reg, U8 value);
-    void Register(const std::string& reg, U16 value);
+    void Register(Register8 reg, U8 value);
+    void Register(Register16 reg, const U16& value);
     
 private:
-    std::map<char, U8> m_Registers;
+    std::map<Register8, U8> m_Registers;
     
     U16 m_SP;
     U16 m_PC;
