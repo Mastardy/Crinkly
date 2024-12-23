@@ -1,6 +1,6 @@
 #include "CPU.hpp"
 
-CPU::CPU()
+CPU::CPU(const std::shared_ptr<Bus>& bus)
 {
     m_Registers[Register8::A] = 0;
     m_Registers[Register8::B] = 0;
@@ -13,6 +13,8 @@ CPU::CPU()
 
     m_SP = 0x0000;
     m_PC = 0x0000;
+
+    m_Bus = bus;
 }
 
 U8 CPU::Register(Register8 reg)
@@ -73,4 +75,14 @@ void CPU::Register(Register16 reg, const U16& value)
         m_PC = value;
         break;
     }
+}
+
+void CPU::Flag(Flags flag, bool set)
+{
+    m_Registers[Register8::F] = set ? m_Registers[Register8::F] | static_cast<U8>(flag) : m_Registers[Register8::F] & ~static_cast<U8>(flag);
+}
+
+bool CPU::Flag(Flags flag)
+{
+    return m_Registers[Register8::F] & static_cast<U8>(flag);
 }

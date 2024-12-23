@@ -5,7 +5,7 @@
 GameBoyConsole::GameBoyConsole()
 {
     m_Bus = std::make_shared<Bus>();
-    m_CPU = std::make_shared<CPU>();
+    m_CPU = std::make_shared<CPU>(m_Bus);
 }
 
 GameBoyConsole::~GameBoyConsole()
@@ -20,5 +20,5 @@ void GameBoyConsole::InsertCartridge(const std::string& cartridge)
 
 void GameBoyConsole::EjectCartridge()
 {
-    std::cout << "Ejecting cartridge.\n";
+    m_Cartridge.reset();
 }

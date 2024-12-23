@@ -32,7 +32,7 @@ public:
     void EjectCartridge();
 
 private:
-    std::shared_ptr<CPU> m_CPU;
     std::shared_ptr<Bus> m_Bus;
+    std::shared_ptr<CPU> m_CPU;
     std::shared_ptr<Cartridge> m_Cartridge;
 };
