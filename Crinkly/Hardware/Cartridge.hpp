@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <string>
 #include <vector>
 
@@ -75,12 +76,17 @@ public:
 
     void VerifyNintendoLogo();
 
+    Byte ReadROM(Address address) const;
+    std::vector<Byte> ReadROM(Address start, Size length) const;
+    
     std::string GetLicenseeCodeLiteral() const;
     std::string GetCartridgeTypeLiteral() const;
     std::string GetROMSizeLiteral() const;
     std::string GetRAMSizeLiteral() const;
     std::string GetDestinationCodeLiteral() const;
 
+    void PrintHeader() const;
+    
     Cartridge(const Cartridge&) = delete;
     Cartridge& operator=(const Cartridge&) = delete;
     Cartridge(Cartridge&&) = delete;
@@ -95,7 +101,6 @@ private:
     
     std::vector<Byte> m_ROM;
 
-    U16 m_EntryPoint;
     std::string m_Title;
     Byte m_OldLicenseeCode;
     Word m_NewLicenseeCode;

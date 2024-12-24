@@ -4,6 +4,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <print>
 
 Cartridge::Cartridge(const std::string& file)
 {
@@ -33,27 +34,16 @@ Cartridge::Cartridge(const std::string& file)
 
 void Cartridge::LoadROM()
 {
-    std::cout << "Entry Point:\n";
-    for (var i = 0x100; i <= 0x103; i++)
-    {
-        std::cout << std::format(" {:#04x}", static_cast<int>(m_ROM[i]));
-    }
-
     VerifyNintendoLogo();
 
     for (var i = 0x134; i <= 0x142; i++)
     {
         m_Title += m_ROM[i];
     }
-    std::cout << "\r\n\r\nTitle:\r\n" << m_Title;
 
     m_CartridgeType = static_cast<CartridgeType>(m_ROM[0x147]);
-    std::cout << "\r\n\r\nCartridge Type:\r\n";
-    std::cout << GetCartridgeTypeLiteral();
 
     m_ROMSize = static_cast<ROMSize>(m_ROM[0x148]);
-    std::cout << "\r\n\r\nROM Size:\r\n";
-    std::cout << GetROMSizeLiteral();
 
     if (m_CartridgeType == CartridgeType::MBC1_RAM || m_CartridgeType == CartridgeType::MBC1_RAM_BATTERY ||
         m_CartridgeType == CartridgeType::ROM_RAM || m_CartridgeType == CartridgeType::ROM_RAM_BATTERY ||
@@ -70,24 +60,16 @@ void Cartridge::LoadROM()
     {
         m_RAMSize = static_cast<RAMSize>(m_ROM[0x149]);
     }
-    std::cout << "\r\n\r\nRAM Size:\r\n";
-    std::cout << GetRAMSizeLiteral();
 
-    m_DestinationCode = static_cast<DestinationCode>(m_ROM[0x14a]);
-    std::cout << "\r\n\r\nDestination Code:\r\n";
-    std::cout << GetDestinationCodeLiteral();
+    m_DestinationCode = static_cast<DestinationCode>(m_ROM[0x14A]);
 
-    m_OldLicenseeCode = m_ROM[0x14b];
+    m_OldLicenseeCode = m_ROM[0x14B];
     if (m_OldLicenseeCode == 0x33)
     {
         m_NewLicenseeCode = static_cast<Word>(m_ROM[0x144] << 8) | m_ROM[0x145];
     }
-    std::cout << "\n\nLicensee Code:\n";
-    std::cout << GetLicenseeCodeLiteral();
 
-    m_MaskROMVersionNumber = m_ROM[0x14c];
-    std::cout << "\n\nMask ROM Version Number:\n";
-    std::cout << static_cast<int>(m_MaskROMVersionNumber);
+    m_MaskROMVersionNumber = m_ROM[0x14C];
 
     U8 calculatedChecksum = 0;
     for (U16 address = 0x0134; address <= 0x014C; address++)
@@ -95,7 +77,7 @@ void Cartridge::LoadROM()
         calculatedChecksum = calculatedChecksum - m_ROM[address] - 1;
     }
 
-    if (calculatedChecksum != m_ROM[0x14d])
+    if (calculatedChecksum != m_ROM[0x14D])
     {
         std::cerr << "\n\nHeader Checksum is incorrect!";
         exit(1);
@@ -106,14 +88,38 @@ void Cartridge::VerifyNintendoLogo()
 {
     for (var i = 0x0104; i <= 0x0133; i++)
     {
-        if (m_ROM[i] != k_NintendoLogo[i - 0x0104])
-        {
-            std::cerr << std::format(
-                "Rom Nintendo Logo does not match!\n{:#06x}\t{:#06x} != {:#06x}\nBlocking Execution...\n", i, m_ROM[i],
-                k_NintendoLogo[i - 0x0104]);
-            exit(1);
-        }
+        if (m_ROM[i] == k_NintendoLogo[i - 0x0104]) continue;
+        std::cerr << std::format("Rom Nintendo Logo does not match!\n{:#06x}\t{:#06x} != {:#06x}\nBlocking Execution...\n",
+            i, m_ROM[i], k_NintendoLogo[i - 0x0104]);
+        exit(1);
     }
+}
+
+Byte Cartridge::ReadROM(Address address) const
+{
+    return m_ROM[address];
+}
+
+std::vector<Byte> Cartridge::ReadROM(Address start, Size length) const
+{
+    std::vector<Byte> data;
+    for (Size i = start; i < start + length; i++)
+    {
+        data.push_back(m_ROM[i]);
+    }
+
+    return data;
+}
+
+void Cartridge::PrintHeader() const
+{
+    std::print("Title:\n {}", m_Title);
+    std::print("\n\nCartridge Type:\n {}", GetCartridgeTypeLiteral());
+    std::print("\n\nROM Size:\n {}", GetROMSizeLiteral());
+    std::print("\n\nRAM Size:\n {}", GetRAMSizeLiteral());
+    std::print("\n\nDestination Code:\n {}", GetDestinationCodeLiteral());
+    std::print("\n\nLicensee Code:\n {}", GetLicenseeCodeLiteral());
+    std::print("\n\nMask ROM Version Number:\n {}", m_MaskROMVersionNumber);
 }
 
 std::string Cartridge::GetLicenseeCodeLiteral() const
@@ -218,7 +224,6 @@ std::string Cartridge::GetLicenseeCodeLiteral() const
             return "Naxat Soft";
         case 0x5D:
             return "Tradewest";
-        // Fill in the rest of the codes
         case 0x60:
             return "Titus Interactive";
         case 0x61:
