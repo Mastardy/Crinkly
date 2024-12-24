@@ -15,7 +15,8 @@ GameBoyConsole::~GameBoyConsole()
 
 void GameBoyConsole::InsertCartridge(const std::string& cartridge)
 {
-    m_Cartridge = std::make_shared<Cartridge>(cartridge);
+    m_Bus->InsertCartridge(cartridge);
+    m_CPU->Step(0x100);
 }
 
 void GameBoyConsole::EjectCartridge()

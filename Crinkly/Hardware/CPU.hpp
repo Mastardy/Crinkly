@@ -49,6 +49,7 @@ public:
     bool Flag(Flags flag);
 
     void Step();
+    void Step(U16 address);
     
 private:
     std::map<Register8, U8> m_Registers;
