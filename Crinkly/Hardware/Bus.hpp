@@ -1,5 +1,8 @@
 #pragma once
 
+#include <memory>
+
+#include "Cartridge.hpp"
 #include "Utility/Types.hpp"
 #include "Utility/Utils.hpp"
 
@@ -12,12 +15,22 @@ private: // Specifications
     static constexpr Size WORK_RAM_SIZE = 8_Kb;
 
 private: // Ranges
-    
+
     
 public:
     Bus();
+
+    void InsertCartridge(const std::string& cartridge);
+    
+    Byte Read(Address address) const;
+    std::vector<Byte> Read(Address start, Size length) const;
+
+    void Write(Address, Byte);
     
 private:
+
+    std::shared_ptr<Cartridge> m_Cartridge;
+
     std::vector<Byte> m_CartridgeROM_Bank0;
     std::vector<Byte> m_CartridgeROM_Bank1;
     std::vector<Byte> m_VideoRAM;
