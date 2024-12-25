@@ -50,6 +50,12 @@ public:
 
     void Step();
     void Step(U16 address);
+
+    void Push(U8 value);
+    void Push(U16 value);
+
+    U8 Pop();
+    U16 Pop16();
     
 private:
     std::map<Register8, U8> m_Registers;

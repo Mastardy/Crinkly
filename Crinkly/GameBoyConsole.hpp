@@ -28,7 +28,7 @@ public:
     GameBoyConsole(GameBoyConsole&&) = delete;
     GameBoyConsole& operator=(GameBoyConsole&&) = delete;    
     
-    void InsertCartridge(const std::string& cartridge);
+    void InsertCartridge(const std::string& cartridge) const;
     void EjectCartridge();
 
 private:
