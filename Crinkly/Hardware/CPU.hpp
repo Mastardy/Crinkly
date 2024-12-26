@@ -61,6 +61,25 @@ public:
     void Step();
     void Step(U16 address);
 
+#pragma region Instructions
+    // 16-bit Load Instructions
+    void LoadFromStackPointer();
+    void LoadImm16ToR16(Register16 reg);
+
+    // 8-bit Arithmetic and Logical Instructions
+    void DecimalAdjustAccumulator();
+    void ComplementAccumulator();
+    void SetCarryFlag();
+    void ComplementCarryFlag();
+    
+    // Rotate, Shift and Bit Instructions
+    void RotateLeftCarryAccumulator();
+    void RotateRightCarryAccumulator();
+    void RotateLeftAccumulator();
+    void RotateRightAccumulator();
+    
+#pragma endregion
+    
 private:
     std::map<Register8, U8> m_Registers;
     std::weak_ptr<Bus> m_Bus;

@@ -79,7 +79,7 @@ void Cartridge::LoadROM()
 
     if (calculatedChecksum != m_ROM[0x14D])
     {
-        std::cerr << "\n\nHeader Checksum is incorrect!";
+        std::println("\n\nHeader Checksum is incorrect!");
         // exit(1);
     }
 }

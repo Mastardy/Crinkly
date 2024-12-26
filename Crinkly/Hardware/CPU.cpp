@@ -3,6 +3,8 @@
 #include <iostream>
 #include <print>
 
+#define PRINT_INSTRUCTION
+
 CPU::CPU(const std::shared_ptr<Bus>& bus)
 {
     m_Registers[Register8::A] = 0;
@@ -199,34 +201,34 @@ void CPU::Step()
                     switch (params)
                     {
                     case 0x00:
-                        std::print("nop\n");
+                        // std::print("nop\n");
                         break;
                     case 0x07:
-                        std::print("rlca\n");
+                        RotateLeftCarryAccumulator(); // rlca
                         break;
                     case 0x08:
-                        std::print("ld [imm16], sp\n");
+                        LoadFromStackPointer(); // ld [imm16], sp
                         break;
                     case 0x0F:
-                        std::print("rrca\n");
+                        RotateRightCarryAccumulator(); // rrca
                         break;
                     case 0x17:
-                        std::print("rla\n");
+                        RotateLeftAccumulator(); // rla
                         break;
                     case 0x1F:
-                        std::print("rra\n");
+                        RotateRightAccumulator(); // rra
                         break;
                     case 0x27:
-                        std::print("daa\n");
+                        DecimalAdjustAccumulator(); // daa 
                         break;
                     case 0x2F:
-                        std::print("cpl\n");
+                        ComplementAccumulator(); // cpl
                         break;
                     case 0x37:
-                        std::print("scf\n");
+                        SetCarryFlag(); // scf
                         break;
                     case 0x3F:
-                        std::print("ccf\n");
+                        ComplementCarryFlag(); // ccf
                         break;
                     default:
                         U8 reg = (params & 0x30) >> 4;
@@ -234,7 +236,7 @@ void CPU::Step()
 
                         if (rightParam == 0x1) // ld r16, imm16
                         {
-                            std::print("ld {}, imm16\n", static_cast<U8>(m_R16[reg]));
+                            LoadImm16ToR16(m_R16[reg]);
                             break;
                         }
                         else if (rightParam == 0x2) // ld [r16], a
@@ -422,7 +424,7 @@ void CPU::Step()
                         const U8 cond = (params & 0x18) >> 3;
                         const U8 tgt3 = (params & 0x38) >> 3;
                         const U8 rstk = static_cast<U8>(m_R16stk[(params & 0x30) >> 4]);
-                        
+
                         switch (right)
                         {
                         case 0x0:
@@ -608,3 +610,168 @@ void CPU::Step(U16 address)
     m_PC = address;
     Step();
 }
+
+#pragma region Instructions
+
+#pragma region 16-bit Load Instructions
+
+void CPU::LoadFromStackPointer()
+{
+#ifdef PRINT_INSTRUCTION
+    std::print("ld [imm16], sp\n");
+#endif
+
+    if (var bus = m_Bus.lock())
+    {
+        U16 address = bus->Read(m_PC++) | static_cast<U16>(bus->Read(m_PC++) << 8);
+        bus->Write(address++, static_cast<U8>(Register(Register16::SP) & 0xFF));
+        bus->Write(address, static_cast<U8>(Register(Register16::SP) >> 8));
+    }
+}
+
+void CPU::LoadImm16ToR16(Register16 reg)
+{
+#ifdef PRINT_INSTRUCTION
+    std::println("ld r16, imm16");
+#endif
+    
+    if (var bus = m_Bus.lock())
+    {
+        const U16 data = bus->Read(m_PC++) | static_cast<U16>(bus->Read(m_PC) << 8);
+        Register(reg, data);
+
+        std::println("{} - 0x{:04X}", static_cast<U8>(reg), data);
+    }
+}
+
+#pragma endregion
+
+#pragma region 8-bit Arithmetic & Logical Instructions
+
+void CPU::DecimalAdjustAccumulator()
+{
+#ifdef PRINT_INSTRUCTION
+    std::println("dda");
+#endif
+
+    Register(Register8::A, 0x48 + 0x48);
+
+    U8 correction = 0;
+    bool carry = Flag(Flags::C);
+    const U8 lsn = Register(Register8::A) & 0x0F; // Least Significant Nibble
+    const U8 msn = Register(Register8::A) >> 4; // Most Significant Nibble
+
+    if (Flag(Flags::H) || lsn > 9)
+    {
+        correction |= 0x06;
+    }
+    if (carry || msn > 0x9)
+    {
+        correction |= 0x60;
+        carry = true;
+    }
+
+    Register(Register8::A, Register(Register8::A) + (Flag(Flags::N) ? -correction : correction));
+    
+    Flag(Flags::Z, Register(Register8::A) == 0x00);
+    Flag(Flags::H, false);
+    Flag(Flags::C, carry);
+}
+
+void CPU::ComplementAccumulator()
+{
+#ifdef PRINT_INSTRUCTION
+    std::println("cpl");
+#endif
+
+    Register(Register8::A, ~Register(Register8::A));
+
+    Flag(Flags::N, true);
+    Flag(Flags::H, true);
+}
+
+void CPU::SetCarryFlag()
+{
+    Flag(Flags::N, false);
+    Flag(Flags::H, false);
+    Flag(Flags::C, true);
+}
+
+void CPU::ComplementCarryFlag()
+{
+    Flag(Flags::N, false);
+    Flag(Flags::H, false);
+    Flag(Flags::C, !Flag(Flags::C));
+}
+
+#pragma endregion
+
+#pragma region Rotate, Shift, Bit Instructions
+
+void CPU::RotateLeftCarryAccumulator()
+{
+#ifdef PRINT_INSTRUCTION
+    std::print("rlca\n");
+#endif
+
+    const bool carry = Register(Register8::A) & 0x80;
+    Register(Register8::A, static_cast<U8>((Register(Register8::A) << 1) | carry));
+
+    Flag(Flags::Z, false);
+    Flag(Flags::N, false);
+    Flag(Flags::H, false);
+    Flag(Flags::C, carry);
+}
+
+void CPU::RotateRightCarryAccumulator()
+{
+#ifdef PRINT_INSTRUCTION
+    std::println("rrca");
+#endif
+
+    const bool carry = Register(Register8::A) & 0x01;
+    Register(Register8::A, static_cast<U8>((Register(Register8::A) >> 1) | (carry ? 0x80 : 0x00)));
+
+    Flag(Flags::Z, false);
+    Flag(Flags::N, false);
+    Flag(Flags::H, false);
+    Flag(Flags::C, carry);
+}
+
+void CPU::RotateLeftAccumulator()
+{
+#ifdef PRINT_INSTRUCTION
+    std::println("rla");
+#endif
+
+    const bool carry = Flag(Flags::C);
+    const bool b7 = Register(Register8::A) & 0x80;
+
+    Register(Register8::A, static_cast<U8>((Register(Register8::A) << 1) | carry));
+
+    Flag(Flags::Z, false);
+    Flag(Flags::N, false);
+    Flag(Flags::H, false);
+    Flag(Flags::C, b7);
+}
+
+void CPU::RotateRightAccumulator()
+{
+#ifdef PRINT_INSTRUCTION
+    std::println("rra");
+#endif
+
+    const bool carry = Flag(Flags::C);
+    const bool b0 = Register(Register8::A) & 0x01;
+
+    Register(Register8::A, static_cast<U8>((Register(Register8::A) >> 1) | (carry ? 0x80 : 0x00)));
+
+    Flag(Flags::Z, false);
+    Flag(Flags::N, false);
+    Flag(Flags::H, false);
+    Flag(Flags::C, b0);
+}
+
+#pragma endregion
+
+#pragma endregion
