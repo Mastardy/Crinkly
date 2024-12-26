@@ -17,7 +17,8 @@ public:
         E,
         F,
         H,
-        L
+        L,
+        HL
     };
     enum class Register16 : U8
     {
@@ -26,7 +27,9 @@ public:
         DE,
         HL,
         SP,
-        PC
+        PC,
+        HLi,
+        HLd
     };
     enum class Flags : U8
     {
@@ -48,18 +51,24 @@ public:
     void Flag(Flags flag, bool set);
     bool Flag(Flags flag);
 
+    void Push(U8 value);
+    void Push(U16 value);
+    U8 Pop();
+    U16 Pop16();
+
+    bool Condition(U8 condition);
+    
     void Step();
     void Step(U16 address);
 
-    void Push(U8 value);
-    void Push(U16 value);
-
-    U8 Pop();
-    U16 Pop16();
-    
 private:
     std::map<Register8, U8> m_Registers;
     std::weak_ptr<Bus> m_Bus;
+
+    std::map<U8, Register8> m_R8;
+    std::map<U8, Register16> m_R16;
+    std::map<U8, Register16> m_R16stk;
+    std::map<U8, Register16> m_R16mem;
     
     U16 m_SP;
     U16 m_PC;

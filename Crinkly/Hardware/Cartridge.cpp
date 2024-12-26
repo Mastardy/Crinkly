@@ -34,7 +34,7 @@ Cartridge::Cartridge(const std::string& file)
 
 void Cartridge::LoadROM()
 {
-    VerifyNintendoLogo();
+    // VerifyNintendoLogo();
 
     for (var i = 0x134; i <= 0x142; i++)
     {
@@ -80,7 +80,7 @@ void Cartridge::LoadROM()
     if (calculatedChecksum != m_ROM[0x14D])
     {
         std::cerr << "\n\nHeader Checksum is incorrect!";
-        exit(1);
+        // exit(1);
     }
 }
 
