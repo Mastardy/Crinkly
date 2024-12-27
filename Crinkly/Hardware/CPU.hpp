@@ -65,6 +65,7 @@ public:
     // 16-bit Load Instructions
     void LoadFromStackPointer();
     void LoadImm16ToR16(Register16 reg);
+    void LoadAccumulatorToR16Address(Register16 reg);
 
     // 8-bit Arithmetic and Logical Instructions
     void DecimalAdjustAccumulator();

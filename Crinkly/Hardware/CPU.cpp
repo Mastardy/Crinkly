@@ -241,7 +241,7 @@ void CPU::Step()
                         }
                         else if (rightParam == 0x2) // ld [r16], a
                         {
-                            std::print("ld [{}], a\n", static_cast<U8>(m_R16mem[reg]));
+                            LoadAccumulatorToR16Address(m_R16[reg]);
                             break;
                         }
                         else if (rightParam == 0x3) // inc r16
@@ -637,12 +637,32 @@ void CPU::LoadImm16ToR16(Register16 reg)
     
     if (var bus = m_Bus.lock())
     {
-        const U16 data = bus->Read(m_PC++) | static_cast<U16>(bus->Read(m_PC) << 8);
+        const U16 data = bus->Read(m_PC++) | static_cast<U16>(bus->Read(m_PC++) << 8);
         Register(reg, data);
 
         std::println("{} - 0x{:04X}", static_cast<U8>(reg), data);
     }
 }
+
+void CPU::LoadAccumulatorToR16Address(Register16 reg)
+{
+#ifdef PRINT_INSTRUCTION
+    std::println("ld [r16], a");
+#endif
+
+    Register(Register8::A, 0x69);
+    Register(Register16::DE, 0xC69D);
+    
+    if (var bus = m_Bus.lock())
+    {
+        const U8 data = Register(Register8::A);
+        const Address address = Register(reg);
+        bus->Write(address, data);
+
+        std::println("Writing 0x{:02X} to Address 0x{:04X}. (0x{:02X})", data, address, bus->Read(address));
+    }
+}
+
 
 #pragma endregion
 
