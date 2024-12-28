@@ -13,9 +13,6 @@ private: // Specifications
     static constexpr Size VIDEO_RAM_SIZE = 8_Kb;
     static constexpr Size CARTRIDGE_RAM_SIZE = 8_Kb;
     static constexpr Size WORK_RAM_SIZE = 8_Kb;
-
-private: // Ranges
-
     
 public:
     Bus();
@@ -28,7 +25,6 @@ public:
     void Write(Address, Byte);
     
 private:
-
     std::shared_ptr<Cartridge> m_Cartridge;
 
     std::vector<Byte> m_CartridgeROM_Bank0;

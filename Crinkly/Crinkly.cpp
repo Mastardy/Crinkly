@@ -14,6 +14,8 @@ int main(const int argc, char* argv[])
 
     console.InsertCartridge(filename);
 
+    system("pause");
+    
     return 0;
 
     // if (argc != 3) IncorrectUsage(argv[0]);
