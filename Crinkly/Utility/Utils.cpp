@@ -6,6 +6,7 @@ void IncorrectUsage(const std::string& exeName)
 {
     std::cout << "Incorrect Usage.\nUsage: " << exeName << " <filename>\n";
 
+    system("pause");
     exit(127);
 }
 

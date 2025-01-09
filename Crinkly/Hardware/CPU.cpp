@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <print>
+#include <thread>
 
 #define PRINT_INSTRUCTION
 
@@ -43,6 +44,7 @@ CPU::CPU(const std::shared_ptr<Bus>& bus)
 
     m_SP = 0x0000;
     m_PC = 0x0000;
+    m_IME = false;
 }
 
 #pragma region CPU Registers
@@ -54,10 +56,9 @@ U8 CPU::Register(Register8 reg)
         {
             return bus->Read(Register(Register16::HL));
         }
-        std::print("Cannot read from indirect register\n");
         return 0;
     }
-    
+
     return reg == Register8::Imm8 ? ReadImm8() : m_Registers[reg];
 }
 
@@ -75,12 +76,12 @@ U16 CPU::Register(Register16 reg)
         return static_cast<U16>(m_Registers[Register8::B] << 8) | m_Registers[Register8::C];
     case Register16::DE:
         return static_cast<U16>(m_Registers[Register8::D] << 8) | m_Registers[Register8::E];
-    case Register16::HL:
-        return static_cast<U16>(m_Registers[Register8::H] << 8) | m_Registers[Register8::L];
     case Register16::HLi:
     case Register16::HLd:
-        std::print("Cannot read from indirect register\n");
-        break;
+    case Register16::HL:
+        return static_cast<U16>(m_Registers[Register8::H] << 8) | m_Registers[Register8::L];
+    case Register16::Imm16:
+        return ReadImm16();
     }
 
     return 0;
@@ -88,11 +89,6 @@ U16 CPU::Register(Register16 reg)
 
 void CPU::Register(Register8 reg, const U8 value)
 {
-    if (reg == Register8::HL)
-    {
-        std::print("Cannot write to indirect register\n");
-        return;
-    }
     m_Registers[reg] = value;
 }
 
@@ -124,7 +120,14 @@ void CPU::Register(Register16 reg, const U16& value)
         break;
     case Register16::HLi:
     case Register16::HLd:
-        std::print("Cannot write to indirect register\n");
+        std::println("Cannot write to indirect register");
+        break;
+    case Register16::Imm16:
+        if (const var bus = m_Bus.lock())
+        {
+            const Address address = ReadImm16();
+            bus->Write(address, static_cast<U8>(value));
+        }
         break;
     }
 }
@@ -178,6 +181,13 @@ void CPU::Push(U16 value)
     Push(static_cast<U8>(value & 0xFF));
 }
 
+void CPU::Push(Register16 reg)
+{
+    const U16 value = Register(reg);
+    Push(value);
+}
+
+
 U8 CPU::Pop()
 {
     if (var bus = m_Bus.lock())
@@ -186,6 +196,14 @@ U8 CPU::Pop()
     }
     exit(1);
 }
+
+void CPU::Pop(Register16 reg)
+{
+    U16 value = Pop();
+    value |= static_cast<U16>(Pop() << 8);
+    Register(reg, value);
+}
+
 
 U16 CPU::Pop16()
 {
@@ -213,11 +231,25 @@ void CPU::Step()
 {
     if (var bus = m_Bus.lock())
     {
-        while (m_PC < 0x12A)
+        while (m_PC < 0xFFFF)
         {
             const var opcode = bus->Read(m_PC++);
             const var block = opcode & 0xC0;
             const var params = opcode & 0x3F;
+
+#ifdef PRINT_INSTRUCTION
+            std::println("PC: {:04X} OP: {:02X} A: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} Z: {} N: {} H: {} C: {}",
+                         m_PC - 1, opcode, Register(Register8::A), Register(Register8::B), Register(Register8::C),
+                         Register(Register8::D), Register(Register8::E), Register(Register8::H), Register(Register8::L),
+                         Flag(Flags::Z), Flag(Flags::N), Flag(Flags::H), Flag(Flags::C));
+#endif
+
+            if (bus->Read(0xFF02) == 0x81)
+            {
+                char c = bus->Read(0xFF01);
+                std::println("{}", c);
+                bus->Write(0xFF02, 0x0);
+            }
 
             if (opcode == 0xDB)
             {
@@ -246,8 +278,10 @@ void CPU::Step()
                 {
                     switch (params)
                     {
-                    case 0x00:
-                        // std::print("nop\n");
+                    case 0x00: // nop
+#ifdef PRINT_INSTRUCTION
+                        // std::println("nop");
+#endif
                         break;
                     case 0x07:
                         RotateLeftCarryAccumulator(); // rlca
@@ -364,28 +398,28 @@ void CPU::Step()
                     switch ((params & 0x38) >> 3)
                     {
                     case 0x0:
-                        Add(operand);
+                        Add(operand); // add a, r8
                         break;
                     case 0x1:
-                        Adc(operand);
+                        Adc(operand); // adc a, r8
                         break;
                     case 0x2:
-                        Sub(operand);
+                        Sub(operand); // sub a, r8
                         break;
                     case 0x3:
-                        Sbc(operand);
+                        Sbc(operand); // sbc a, r8
                         break;
                     case 0x4:
-                        And(operand);
+                        And(operand); // and a, r8
                         break;
                     case 0x5:
-                        Xor(operand);
+                        Xor(operand); // xor a, r8
                         break;
                     case 0x6:
-                        Or(operand);
+                        Or(operand); // or a, r8
                         break;
                     case 0x7:
-                        Cp(operand);
+                        Cp(operand); // cp a, r8
                         break;
                     }
                     break;
@@ -395,78 +429,123 @@ void CPU::Step()
                     switch (params)
                     {
                     case 0x03:
-                        std::println("jp imm16");
+                        Jump(Register16::Imm16);
                         break;
                     case 0x06:
                         Add(Register8::Imm8);
                         break;
                     case 0x09:
-                        std::println("ret");
+                        Return();
                         break;
                     case 0x0B:
-                        std::println("prefix");
-                        break;
+                        {
+                            const U8 suffix = bus->Read(m_PC++);
+                            const U8 suffixBlock = (suffix & 0xC0) >> 6;
+                            const U8 operand = suffix & 0x7;
+                            const U8 bitIndex = (suffix & 0x38) >> 3;
+
+                            switch (suffixBlock)
+                            {
+                            case 0x0:
+                                switch (bitIndex)
+                                {
+                                case 0x0:
+                                    RotateLeftCarry(m_R8[operand]);
+                                    break;
+                                case 0x1:
+                                    RotateRightCarry(m_R8[operand]);
+                                    break;
+                                case 0x2:
+                                    RotateLeft(m_R8[operand]);
+                                    break;
+                                case 0x3:
+                                    RotateRight(m_R8[operand]);
+                                    break;
+                                case 0x4:
+                                    ShiftLeft(m_R8[operand]);
+                                    break;
+                                case 0x5:
+                                    ShiftRight(m_R8[operand]);
+                                    break;
+                                case 0x6:
+                                    Swap(m_R8[operand]);
+                                    break;
+                                case 0x7:
+                                    ShiftRightLogically(m_R8[operand]);
+                                    break;
+                                }
+                                break;
+                            case 0x1:
+                                Bit(bitIndex, m_R8[operand]);
+                                break;
+                            case 0x2:
+                                Reset(bitIndex, m_R8[operand]);
+                                break;
+                            case 0x3:
+                                Set(bitIndex, m_R8[operand]);
+                                break;
+                            }
+                            break;
+                        }
                     case 0x0D:
-                        std::println("call imm16");
+                        Call();
                         break;
                     case 0x0E:
                         Adc(Register8::Imm8);
                         break;
                     case 0x16:
                         Sub(Register8::Imm8);
-                        std::println("sub a, imm8");
                         break;
                     case 0x19:
-                        std::println("reti");
+                        ReturnI();
                         break;
                     case 0x1E:
                         Sbc(Register8::Imm8);
-                        std::println("sbc a, imm8");
                         break;
                     case 0x20:
-                        std::println("ldh [imm8], a");
+                        LoadHighFromAccumulator(Register8::Imm8);
                         break;
                     case 0x22:
-                        std::println("ldh [c], a");
+                        LoadHighFromAccumulator(Register8::C);
                         break;
                     case 0x26:
                         And(Register8::Imm8);
                         break;
                     case 0x28:
-                        std::println("add sp, imm8");
+                        AddSP();
                         break;
                     case 0x29:
-                        std::println("jp hl");
+                        Jump(Register16::HL);
                         break;
                     case 0x2A:
-                        std::println("ld [imm16], a");
+                        LoadAccumulatorToR16Address(Register16::Imm16);
                         break;
                     case 0x2E:
                         Xor(Register8::Imm8);
                         break;
                     case 0x30:
-                        std::println("ldh a, [imm8]");
+                        LoadHighToAccumulator(Register8::Imm8);
                         break;
                     case 0x32:
-                        std::println("ldh a, [c]");
+                        LoadHighToAccumulator(Register8::C);
                         break;
                     case 0x33:
-                        std::println("di");
+                        DisableInterrupts();
                         break;
                     case 0x36:
                         Or(Register8::Imm8);
                         break;
                     case 0x38:
-                        std::println("ld hl, sp + imm8");
+                        LoadSPOffsetToHL();
                         break;
                     case 0x39:
-                        std::println("ld sp, hl");
+                        LoadHLToSP();
                         break;
                     case 0x3A:
-                        std::println("ld a, [imm16]");
+                        LoadR16AddressToAccumulator(Register16::Imm16);
                         break;
                     case 0x3B:
-                        std::println("ei");
+                        EnableInterrupts();
                         break;
                     case 0x3E:
                         Cp(Register8::Imm8);
@@ -475,33 +554,35 @@ void CPU::Step()
                         const U8 right = params & 0x07;
                         const U8 cond = (params & 0x18) >> 3;
                         const U8 tgt3 = (params & 0x38) >> 3;
-                        const U8 rstk = static_cast<U8>(m_R16stk[(params & 0x30) >> 4]);
+                        const Register16 rstk = m_R16stk[(params & 0x30) >> 4];
 
                         switch (right)
                         {
                         case 0x0:
-                            std::println("ret {}", cond);
+                            ReturnConditional(cond);
                             break;
                         case 0x1:
-                            std::println("pop {}", rstk);
+                            Pop(rstk);
                             break;
                         case 0x2:
-                            std::println("jp {}, imm16", cond);
+                            JumpConditional(cond);
                             break;
                         case 0x4:
-                            std::println("call {}, imm16", cond);
+                            CallConditional(cond);
                             break;
                         case 0x5:
-                            std::println("push {}", rstk);
+                            Push(rstk);
                             break;
                         case 0x7:
-                            std::println("rst {}", tgt3);
+                            Restart(tgt3);
                             break;
                         }
                     }
                     break;
                 }
             }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
     }
     else
@@ -531,9 +612,10 @@ void CPU::PrintInstruction(const std::format_string<Types...>& text, Types&&... 
 
 void CPU::LoadFromStackPointer()
 {
-    PrintInstruction("ld [imm16], sp");
-
     U16 address = ReadImm16();
+
+    PrintInstruction("ld {:04X}, sp[{:04X}]", address, Register(Register16::SP));
+
     if (const var bus = m_Bus.lock())
     {
         bus->Write(address++, static_cast<U8>(Register(Register16::SP) & 0xFF));
@@ -543,34 +625,74 @@ void CPU::LoadFromStackPointer()
 
 void CPU::LoadImm16ToR16(Register16 reg)
 {
-    PrintInstruction("ld r16, imm16");
-
     const U16 data = ReadImm16();
+    PrintInstruction("ld {}, imm16", RegisterLiteral(reg), data);
     Register(reg, data);
 }
 
 void CPU::LoadAccumulatorToR16Address(Register16 reg)
 {
-    PrintInstruction("ld [r16mem], a");
+    PrintInstruction("ld [{}], a", RegisterLiteral(reg));
 
     if (const var bus = m_Bus.lock())
     {
         const U8 data = Register(Register8::A);
         const Address address = Register(reg);
         bus->Write(address, data);
+
+        if (reg == Register16::HLd)
+        {
+            Register(Register16::HL, address - 1);
+        }
+        else if (reg == Register16::HLi)
+        {
+            Register(Register16::HL, address + 1);
+        }
     }
 }
 
 void CPU::LoadR16AddressToAccumulator(Register16 reg)
 {
-    PrintInstruction("ld a, [r16mem]");
+    PrintInstruction("ld a, {}", RegisterLiteral(reg));
 
     if (const var bus = m_Bus.lock())
     {
         const Address address = Register(reg);
         const U8 data = bus->Read(address);
         Register(Register8::A, data);
+
+        if (reg == Register16::HLd)
+        {
+            Register(Register16::HL, Register(Register16::HL) - 1);
+        }
+        else if (reg == Register16::HLi)
+        {
+            Register(Register16::HL, Register(Register16::HL) + 1);
+        }
     }
+}
+
+void CPU::LoadSPOffsetToHL()
+{
+    PrintInstruction("ld hl, sp + imm8");
+
+    const U16 sp = Register(Register16::SP);
+    const S8 imm8 = ReadImm8();
+
+    const U16 result = static_cast<U16>(sp + imm8);
+    Register(Register16::HL, result);
+
+    Flag(Flags::Z, false);
+    Flag(Flags::N, false);
+    Flag(Flags::H, ((sp & 0x0F) + (imm8 & 0x0F)) > 0x0F);
+    Flag(Flags::C, ((sp & 0xFF) + (imm8 & 0xFF)) > 0xFF);
+}
+
+void CPU::LoadHLToSP()
+{
+    PrintInstruction("ld sp, hl");
+
+    m_SP = Register(Register16::HL);
 }
 
 #pragma endregion
@@ -579,15 +701,16 @@ void CPU::LoadR16AddressToAccumulator(Register16 reg)
 
 void CPU::LoadImm8ToR8(Register8 reg)
 {
-    PrintInstruction("ld r8, imm8");
-
     const U8 data = ReadImm8();
+
+    PrintInstruction("ld r8, {:02X}", data);
+
     Register(reg, data);
 }
 
 void CPU::LoadR8ToR8(Register8 left, Register8 right)
 {
-    PrintInstruction("ld r8, r8");
+    PrintInstruction("ld {}, {}", RegisterLiteral(left), RegisterLiteral(right));
 
     if (const var bus = m_Bus.lock())
     {
@@ -595,6 +718,27 @@ void CPU::LoadR8ToR8(Register8 left, Register8 right)
     }
 }
 
+void CPU::LoadHighToAccumulator(Register8 reg)
+{
+    PrintInstruction("ldh a, [{}]", reg == Register8::C ? "c" : "imm8");
+
+    if (const var bus = m_Bus.lock())
+    {
+        const Address address = 0xFF00 + Register(reg);
+        Register(Register8::A, bus->Read(address));
+    }
+}
+
+void CPU::LoadHighFromAccumulator(Register8 reg)
+{
+    PrintInstruction("ldh [{}], a", reg == Register8::C ? "c" : "imm8");
+
+    if (const var bus = m_Bus.lock())
+    {
+        const Address address = 0xFF00 + Register(reg);
+        bus->Write(address, Register(Register8::A));
+    }
+}
 
 #pragma endregion
 
@@ -700,7 +844,7 @@ void CPU::Xor(Register8 reg)
 
 void CPU::Or(Register8 reg)
 {
-    PrintInstruction("or a, r8");
+    PrintInstruction("or a, {}", RegisterLiteral(reg));
 
     const U8 accumulator = Register(Register8::A);
     const U8 value = Register(reg);
@@ -730,11 +874,11 @@ void CPU::Cp(Register8 reg)
 
 void CPU::Increment(Register8 reg)
 {
-    PrintInstruction("inc r8");
-
     const U8 value = Register(reg);
     Register(reg, value + 1);
 
+    PrintInstruction("inc {}({:02X})", RegisterLiteral(reg), value);
+    
     Flag(Flags::Z, Register(reg) == 0x00);
     Flag(Flags::N, false);
     Flag(Flags::H, (value & 0xF) == 0xF);
@@ -871,35 +1015,183 @@ void CPU::RotateLeftAccumulator()
 {
     PrintInstruction("rla");
 
-    const bool carry = Flag(Flags::C);
-    const bool b7 = Register(Register8::A) & 0x80;
+    const bool carry = Register(Register8::A) & 0x80;
 
-    Register(Register8::A, static_cast<U8>((Register(Register8::A) << 1) | static_cast<U8>(carry)));
+    Register(Register8::A, static_cast<U8>((Register(Register8::A) << 1) | static_cast<U8>(Flag(Flags::C))));
 
     Flag(Flags::Z, false);
     Flag(Flags::N, false);
     Flag(Flags::H, false);
-    Flag(Flags::C, b7);
+    Flag(Flags::C, carry);
 }
 
 void CPU::RotateRightAccumulator()
 {
     PrintInstruction("rra");
 
-    const bool carry = Flag(Flags::C);
-    const bool b0 = Register(Register8::A) & 0x01;
+    const bool carry = Register(Register8::A) & 0x01;
 
-    Register(Register8::A, static_cast<U8>((Register(Register8::A) >> 1) | (carry ? 0x80 : 0x00)));
+    Register(Register8::A, static_cast<U8>((Register(Register8::A) >> 1) | (Flag(Flags::C) ? 0x80 : 0x00)));
 
     Flag(Flags::Z, false);
     Flag(Flags::N, false);
     Flag(Flags::H, false);
-    Flag(Flags::C, b0);
+    Flag(Flags::C, carry);
+}
+
+void CPU::RotateLeftCarry(Register8 reg)
+{
+    PrintInstruction("rlc r8");
+
+    const bool carry = Register(reg) & 0x80;
+    const U8 result = static_cast<U8>(Register(reg) << 1) | static_cast<U8>(carry);
+    Register(reg, result);
+
+    Flag(Flags::Z, result == 0x00);
+    Flag(Flags::N, false);
+    Flag(Flags::H, false);
+    Flag(Flags::C, carry);
+}
+
+void CPU::RotateRightCarry(Register8 reg)
+{
+    PrintInstruction("rrc r8");
+
+    const bool carry = Register(reg) & 0x01;
+    const U8 result = static_cast<U8>(Register(reg) >> 1) | (carry ? 0x80 : 0x00);
+    Register(reg, result);
+
+    Flag(Flags::Z, result == 0x00);
+    Flag(Flags::N, false);
+    Flag(Flags::H, false);
+    Flag(Flags::C, carry);
+}
+
+void CPU::RotateLeft(Register8 reg)
+{
+    PrintInstruction("rl r8");
+
+    const bool carry = Register(reg) & 0x80;
+    const U8 result = static_cast<U8>(Register(reg) << 1) || Flag(Flags::C);
+    Register(reg, result);
+
+    Flag(Flags::Z, result == 0x00);
+    Flag(Flags::N, false);
+    Flag(Flags::H, false);
+    Flag(Flags::C, carry);
+}
+
+void CPU::RotateRight(Register8 reg)
+{
+    PrintInstruction("rr r8");
+
+    const bool carry = Register(reg) & 0x01;
+    const U8 result = static_cast<U8>(Register(reg) >> 1) || Flag(Flags::C) ? 0x80 : 0x00;
+    Register(reg, result);
+
+    Flag(Flags::Z, result == 0x00);
+    Flag(Flags::N, false);
+    Flag(Flags::H, false);
+    Flag(Flags::C, carry);
+}
+
+void CPU::ShiftLeft(Register8 reg)
+{
+    PrintInstruction("sla r8");
+
+    const bool carry = Register(reg) & 0x80;
+    Register(reg, static_cast<U8>(Register(reg) << 1) & carry);
+
+    Flag(Flags::Z, Register(reg) == 0x00);
+    Flag(Flags::N, false);
+    Flag(Flags::H, false);
+    Flag(Flags::C, carry);
+}
+
+void CPU::ShiftRight(Register8 reg)
+{
+    PrintInstruction("sra r8");
+
+    const bool carry = Register(reg) & 0x01;
+    Register(reg, static_cast<U8>(Register(reg) >> 1) & (carry & 0x80));
+
+    Flag(Flags::Z, Register(reg) == 0x00);
+    Flag(Flags::N, false);
+    Flag(Flags::H, false);
+    Flag(Flags::C, carry);
+}
+
+void CPU::ShiftRightLogically(Register8 reg)
+{
+    PrintInstruction("srl r8");
+
+    const bool carry = Register(reg) & 0x01;
+    Register(reg, static_cast<U8>(Register(reg) >> 1));
+
+    Flag(Flags::Z, Register(reg) == 0x00);
+    Flag(Flags::N, false);
+    Flag(Flags::H, false);
+    Flag(Flags::C, carry);
+}
+
+
+void CPU::Swap(Register8 reg)
+{
+    PrintInstruction("swap r8");
+
+    const U8 lsn = Register(reg) & 0x0F;
+    const U8 hsn = Register(reg) & 0xF0;
+
+    Register(reg, static_cast<U8>(lsn << 8) | static_cast<U8>(hsn >> 8));
+
+    Flag(Flags::Z, Register(reg) == 0x00);
+    Flag(Flags::N, false);
+    Flag(Flags::H, false);
+    Flag(Flags::C, false);
 }
 
 #pragma endregion
 
 #pragma region Control Flow Instructions
+
+void CPU::Call()
+{
+    PrintInstruction("call imm16");
+
+    const Address address = ReadImm16();
+    Push(m_PC);
+    m_PC = address;
+}
+
+void CPU::CallConditional(U8 cond)
+{
+    PrintInstruction("call cond, imm16");
+
+    if (Condition(cond))
+    {
+        const Address address = ReadImm16();
+        Push(m_PC);
+        m_PC = address;
+    }
+}
+
+void CPU::Jump(Register16 reg)
+{
+    const Address address = Register(reg);
+    PrintInstruction("jp 0x{:04X}", address);
+    m_PC = address;
+}
+
+void CPU::JumpConditional(U8 cond)
+{
+    PrintInstruction("jp cond, imm16");
+
+    if (Condition(cond))
+    {
+        const Address address = ReadImm16();
+        m_PC = address;
+    }
+}
 
 void CPU::JumpRelative()
 {
@@ -911,10 +1203,47 @@ void CPU::JumpRelative()
 
 void CPU::JumpRelativeConditional(U8 cond)
 {
-    PrintInstruction("jr {}, imm8", cond);
-
     const S8 offset = ReadImm8();
+    PrintInstruction("jr {}, {}({:02X})", ConditionLiteral(cond), offset, static_cast<U8>(offset));
     if (Condition(cond)) m_PC += offset;
+}
+
+void CPU::Return()
+{
+    PrintInstruction("ret");
+
+    const Address address = Pop16();
+    m_PC = address;
+}
+
+void CPU::ReturnI()
+{
+    PrintInstruction("reti");
+
+    const Address address = Pop16();
+    m_PC = address;
+
+    m_IME = true;
+}
+
+void CPU::ReturnConditional(U8 cond)
+{
+    PrintInstruction("ret cond");
+
+    if (Condition(cond))
+    {
+        const Address address = Pop16();
+        m_PC = address;
+    }
+}
+
+
+void CPU::Restart(U8 vec)
+{
+    PrintInstruction("rst vec");
+
+    Push(m_PC);
+    m_PC = static_cast<U16>(vec << 3);
 }
 
 #pragma endregion
@@ -924,6 +1253,57 @@ void CPU::JumpRelativeConditional(U8 cond)
 void CPU::Stop() const
 {
     PrintInstruction("Stop");
+    system("pause");
+}
+
+void CPU::DisableInterrupts()
+{
+    PrintInstruction("di");
+
+    m_IME = false;
+}
+
+void CPU::EnableInterrupts()
+{
+    PrintInstruction("ei");
+
+    m_IME = true;
+}
+
+void CPU::AddSP()
+{
+    PrintInstruction("add sp, imm8");
+
+    const S8 imm8 = ReadImm8();
+    const U16 sp = m_SP;
+    const U16 result = static_cast<U16>(sp + imm8);
+    m_SP = result;
+
+    Flag(Flags::Z, false);
+    Flag(Flags::N, false);
+    Flag(Flags::H, ((sp & 0x0F) + (imm8 & 0x0F)) > 0x0F);
+    Flag(Flags::C, ((sp & 0xFF) + (imm8 & 0xFF)) > 0xFF);
+}
+
+#pragma endregion
+
+#pragma region Bit Operations
+
+void CPU::Bit(U8 bitIndex, Register8 reg)
+{
+    Flag(Flags::Z, (Register(reg) & static_cast<U8>(pow(2, bitIndex))) == 0);
+    Flag(Flags::N, false);
+    Flag(Flags::H, true);
+}
+
+void CPU::Reset(U8 bitIndex, Register8 reg)
+{
+    Register(reg, Register(reg) & ~static_cast<U8>(pow(2, bitIndex)));
+}
+
+void CPU::Set(U8 bitIndex, Register8 reg)
+{
+    Register(reg, Register(reg) | static_cast<U8>(pow(2, bitIndex)));
 }
 
 #pragma endregion
