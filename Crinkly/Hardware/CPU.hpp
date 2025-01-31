@@ -1,5 +1,6 @@
 #pragma once
 #include <format>
+#include <fstream>
 #include <map>
 #include <memory>
 
@@ -46,7 +47,10 @@ public:
 
 public:
     CPU(const std::shared_ptr<Bus>& bus);
-
+    ~CPU();
+    
+    void Bootstrap();
+    
     U8 Register(Register8 reg);
     U16 Register(Register16 reg);
 
@@ -103,6 +107,8 @@ public:
         case Register8::HL: return "HL";
         case Register8::Imm8: return "imm8";
         }
+
+        return "???";
     }
 
     inline static std::string RegisterLiteral(Register16 reg)
@@ -119,6 +125,8 @@ public:
         case Register16::HLd: return "[HL-]";
         case Register16::Imm16: return "imm16";
         }
+
+        return "???";
     }
 
 #pragma region Instructions
@@ -210,4 +218,6 @@ private:
     U16 m_SP;
     U16 m_PC;
     bool m_IME;
+    bool m_IME_Next_Cycle;
+    std::ofstream m_Log;
 };

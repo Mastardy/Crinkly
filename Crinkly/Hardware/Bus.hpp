@@ -18,9 +18,10 @@ public:
     Bus();
 
     void InsertCartridge(const std::string& cartridge);
+    std::string CartridgeName() const { return cartridgeName; }
     
-    Byte Read(Address address) const;
-    std::vector<Byte> Read(Address start, Size length) const;
+    Byte Read(Address address);
+    std::vector<Byte> Read(Address start, Size length);
 
     void Write(Address, Byte);
     
@@ -36,4 +37,6 @@ private:
     std::vector<Byte> m_IO_Registers;
     std::vector<Byte> m_HighRAM;
     Byte m_InterruptEnable;
+
+    std::string cartridgeName;
 };

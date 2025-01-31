@@ -1,7 +1,5 @@
 #pragma once
 
-#define var auto
-
 using Address = unsigned short;
 using Size = unsigned int;
 

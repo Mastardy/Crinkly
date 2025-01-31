@@ -17,14 +17,19 @@ Bus::Bus()
 
 void Bus::InsertCartridge(const std::string& cartridge)
 {
+    cartridgeName = SplitString(SplitString(cartridge, "\\").back(), ".")[0];
+
     m_Cartridge = std::make_shared<Cartridge>(cartridge);
 
     m_CartridgeROM_Bank0 = m_Cartridge->ReadROM(0, CARTRIDGE_BANK_ROM_SIZE);
     m_CartridgeROM_Bank1 = m_Cartridge->ReadROM(CARTRIDGE_BANK_ROM_SIZE, CARTRIDGE_BANK_ROM_SIZE);
 }
 
-Byte Bus::Read(Address address) const
+Byte Bus::Read(Address address)
 {
+    Byte value = 0x90;
+    m_IO_Registers[0x44] = value;
+
     if (address < 0x4000) return m_CartridgeROM_Bank0[address];
     else if (address < 0x8000) return m_CartridgeROM_Bank1[address - 0x4000];
     else if (address < 0xA000) return m_VideoRAM[address - 0x8000];
@@ -33,7 +38,7 @@ Byte Bus::Read(Address address) const
     else if (address >= 0xFE00 && address < 0xFEA0) return m_OAM[address - 0xFE00];
     else if (address < 0xFEFF)
     {
-        std::cerr << "Attempted to read prohibited memory address: " << address << '\n';
+        std::cerr << std::format("Attempted to read prohibited memory address: {:04X}\n", address);
     }
     else if (address < 0xFF7F) return m_IO_Registers[address - 0xFF00];
     else if (address < 0xFFFF) return m_HighRAM[address - 0xFF80];
@@ -42,15 +47,15 @@ Byte Bus::Read(Address address) const
     return 0x0;
 }
 
-std::vector<Byte> Bus::Read(Address start, Size length) const
+std::vector<Byte> Bus::Read(Address start, Size length)
 {
-    var data = std::vector<Byte>(length);
+    auto data = std::vector<Byte>(length);
 
     for (Size i = start; i < start + length; i++)
     {
         data.emplace_back(Read(static_cast<Address>(i)));
     }
-    
+
     return data;
 }
 
@@ -66,7 +71,7 @@ void Bus::Write(Address address, Byte value)
     else if (address >= 0xFE00 && address < 0xFEA0) m_OAM[address - 0xFE00] = value;
     else if (address < 0xFEFF)
     {
-        std::cerr << "Attempted to write to prohibited memory address: " << address << '\n';
+        std::cerr << std::format("Attempted to write to prohibited memory address: {:04X}\n", address);
     }
     else if (address < 0xFF7F) m_IO_Registers[address - 0xFF00] = value;
     else if (address < 0xFFFF) m_HighRAM[address - 0xFF80] = value;

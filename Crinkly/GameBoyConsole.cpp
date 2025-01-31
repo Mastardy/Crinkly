@@ -16,6 +16,7 @@ GameBoyConsole::~GameBoyConsole()
 void GameBoyConsole::InsertCartridge(const std::string& cartridge) const
 {
     m_Bus->InsertCartridge(cartridge);
+    m_CPU->Bootstrap();
     m_CPU->Step(0x100);
 }
 

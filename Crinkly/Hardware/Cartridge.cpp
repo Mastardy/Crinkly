@@ -36,7 +36,7 @@ void Cartridge::LoadROM()
 {
     VerifyNintendoLogo();
 
-    for (var i = 0x134; i <= 0x142; i++)
+    for (auto i = 0x134; i <= 0x142; i++)
     {
         m_Title += m_ROM[i];
     }
@@ -86,7 +86,7 @@ void Cartridge::LoadROM()
 
 void Cartridge::VerifyNintendoLogo()
 {
-    for (var i = 0x0104; i <= 0x0133; i++)
+    for (auto i = 0x0104; i <= 0x0133; i++)
     {
         if (m_ROM[i] == k_NintendoLogo[i - 0x0104]) continue;
         std::cerr << std::format("Rom Nintendo Logo does not match!\n{:#06x}\t{:#06x} != {:#06x}\nBlocking Execution...\n",
