@@ -219,5 +219,7 @@ private:
     U16 m_PC;
     bool m_IME;
     bool m_IME_Next_Cycle;
+    bool m_Interrupting;
+    U8 m_Wait;
     std::ofstream m_Log;
 };

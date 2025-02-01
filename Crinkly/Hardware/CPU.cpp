@@ -10,6 +10,10 @@ static std::string word;
 
 // #define PRINT_INSTRUCTION
 
+static int lineCounter = 0;
+static int counter = 0;
+static int lastCounter = 0;
+
 CPU::CPU(const std::shared_ptr<Bus>& bus)
 {
     m_Registers[Register8::A] = 0;
@@ -50,6 +54,8 @@ CPU::CPU(const std::shared_ptr<Bus>& bus)
     m_PC = 0x0000;
     m_IME = false;
     m_IME_Next_Cycle = false;
+    m_Interrupting = false;
+    m_Wait = 0;
 }
 
 CPU::~CPU()
@@ -127,7 +133,7 @@ void CPU::Register(Register8 reg, const U8 value)
         }
         return;
     }
-    
+
     m_Registers[reg] = value;
 }
 
@@ -214,7 +220,7 @@ U16 CPU::ReadImm16()
 {
     if (const auto bus = m_Bus.lock())
     {
-        return bus->Read(m_PC++) | static_cast<U16>(bus->Read(m_PC++) << 8);
+        return static_cast<U16>(bus->Read(m_PC++)) | static_cast<U16>(bus->Read(m_PC++) << 8);
     }
 
     return 0x0000;
@@ -256,7 +262,7 @@ void CPU::Pop(Register16 reg)
 {
     U16 value = Pop();
     value |= static_cast<U16>(Pop() << 8);
-        
+
     Register(reg, value);
 }
 
@@ -274,9 +280,100 @@ void CPU::Step()
 {
     if (auto bus = m_Bus.lock())
     {
-        int counter = 0;
         while (m_PC < 0xFFFF)
         {
+            PCMEM[0] = bus->Read(m_PC);
+            PCMEM[1] = bus->Read(m_PC + 1);
+            PCMEM[2] = bus->Read(m_PC + 2);
+            PCMEM[3] = bus->Read(m_PC + 3);
+
+            str = std::format(
+                "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}",
+                Register(Register8::A), Register(Register8::F), Register(Register8::B), Register(Register8::C),
+                Register(Register8::D), Register(Register8::E), Register(Register8::H), Register(Register8::L),
+                Register(Register16::SP), Register(Register16::PC), PCMEM[0], PCMEM[1], PCMEM[2], PCMEM[3]);
+            m_Log << str << '\n';
+
+            if (++lineCounter % 100000 == 0) std::println("{}", lineCounter);
+            
+            auto TAC = bus->Read(0xFF07);
+            auto TMA = bus->Read(0xFF06);
+            auto TIMA = bus->Read(0xFF05);
+            
+            if (TAC & 0x04)
+            {
+                ++counter;
+                
+                if ((TAC & 0x03) == 0x03)
+                {
+                    if (counter - lastCounter >= 64)
+                    {
+                        lastCounter = counter;
+                        ++TIMA;
+                        if (TIMA == 0x00)
+                        {
+                            bus->Write(0xFF05, TMA);
+                            bus->Write(0xFF0F, bus->Read(0xFF0F) | 0x04);
+                        }
+                        else
+                        {
+                            bus->Write(0xFF05, TIMA);
+                        }
+                    }
+                }
+                else if ((TAC & 0x03) == 0x02)
+                {
+                    if (counter - lastCounter >= 16)
+                    {
+                        lastCounter = counter;
+                        ++TIMA;
+                        if (TIMA == 0x00)
+                        {
+                            bus->Write(0xFF05, TMA);
+                            bus->Write(0xFF0F, bus->Read(0xFF0F) | 0x04);
+                        }
+                        else
+                        {
+                            bus->Write(0xFF05, TIMA);
+                        }
+                    }
+                }
+                else if ((TAC & 0x03) == 0x01)
+                {
+                    if (counter - lastCounter >= 4)
+                    {
+                        lastCounter = counter;
+                        ++TIMA;
+                        if (TIMA == 0x00)
+                        {
+                            bus->Write(0xFF05, TMA);
+                            bus->Write(0xFF0F, bus->Read(0xFF0F) | 0x04);
+                        }
+                        else
+                        {
+                            bus->Write(0xFF05, TIMA);
+                        }
+                    }
+                }
+                else
+                {
+                    if (counter - lastCounter >= 256)
+                    {
+                        lastCounter = counter;
+                        ++TIMA;
+                        if (TIMA == 0x00)
+                        {
+                            bus->Write(0xFF05, TMA);
+                            bus->Write(0xFF0F, bus->Read(0xFF0F) | 0x04);
+                        }
+                        else
+                        {
+                            bus->Write(0xFF05, TIMA);
+                        }
+                    }
+                }
+            }
+
             if (m_IME_Next_Cycle)
             {
                 m_IME = true;
@@ -290,6 +387,7 @@ void CPU::Step()
                 {
                     m_IME = false;
                     m_IME_Next_Cycle = false;
+                    m_Interrupting = true;
 
                     Push(m_PC);
                     if (interrupt & 0x01)
@@ -319,22 +417,7 @@ void CPU::Step()
                     }
                 }
             }
-            
-            PCMEM[0] = bus->Read(m_PC);
-            PCMEM[1] = bus->Read(m_PC + 1);
-            PCMEM[2] = bus->Read(m_PC + 2);
-            PCMEM[3] = bus->Read(m_PC + 3);
 
-            str = std::format(
-                "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}",
-                Register(Register8::A), Register(Register8::F), Register(Register8::B), Register(Register8::C),
-                Register(Register8::D), Register(Register8::E), Register(Register8::H), Register(Register8::L),
-                Register(Register16::SP), Register(Register16::PC), PCMEM[0], PCMEM[1], PCMEM[2], PCMEM[3]);
-            \
-            m_Log << str << '\n';
-
-            if (++counter % 100000 == 0) std::println("{}", counter );
-            
             const auto opcode = bus->Read(m_PC++);
             const auto block = opcode & 0xC0;
             const auto params = opcode & 0x3F;
@@ -349,11 +432,11 @@ void CPU::Step()
 
             if (bus->Read(0xFF02) == 0x81)
             {
-                char c = bus->Read(0xFF01);
+                char c = static_cast<char>(bus->Read(0xFF01));
                 if (c == ' ' || c == '\n') word = "";
                 else word += c;
                 std::print("{}", c);
-                if (word == "Passed" || word == "FAIL")
+                if (word == "Passed" || word == "Failed")
                 {
                     std::print("{}", '\n');
                     break;
@@ -750,6 +833,11 @@ void CPU::LoadAccumulatorToR16Address(Register16 reg)
         const Address address = Register(reg);
         bus->Write(address, data);
 
+        if (address == 0xFF0F)
+        {
+            std::println("Address: {:04X} -> {:02X}", address, data);
+        }
+
         if (reg == Register16::HLd)
         {
             Register(Register16::HL, address - 1);
@@ -771,6 +859,11 @@ void CPU::LoadR16AddressToAccumulator(Register16 reg)
         const U8 data = bus->Read(address);
         Register(Register8::A, data);
 
+        if (address == 0xFF0F)
+        {
+            std::println("Address: {:04X} -> {:02X}", address, data);
+        }
+
         if (reg == Register16::HLd)
         {
             Register(Register16::HL, Register(Register16::HL) - 1);
@@ -787,7 +880,7 @@ void CPU::LoadSPOffsetToHL()
     PrintInstruction("ld hl, sp + imm8");
 
     const U16 sp = Register(Register16::SP);
-    const S8 imm8 = ReadImm8();
+    const S8 imm8 = static_cast<S8>(ReadImm8());
 
     const U16 result = static_cast<U16>(sp + imm8);
     Register(Register16::HL, result);
@@ -846,6 +939,11 @@ void CPU::LoadHighFromAccumulator(Register8 reg)
     if (const auto bus = m_Bus.lock())
     {
         const Address address = 0xFF00 + Register(reg);
+        if (address == 0xFF07)
+        {
+            std::println("Test");
+            lastCounter = counter;
+        }
         bus->Write(address, Register(Register8::A));
     }
 }
@@ -1000,7 +1098,7 @@ void CPU::Decrement(Register8 reg)
 
     const U8 value = Register(reg);
     Register(reg, value - 1);
-    
+
     Flag(Flags::Z, Register(reg) == 0x00);
     Flag(Flags::N, true);
     Flag(Flags::H, (value & 0x0F) == 0x0);
@@ -1010,10 +1108,10 @@ void CPU::DecimalAdjustAccumulator()
 {
     PrintInstruction("daa");
 
-    U8 accumulator = Register(Register8::A);    
+    U8 accumulator = Register(Register8::A);
     bool carry = Flag(Flags::C);
     bool sub = Flag(Flags::N);
-    
+
     const U8 lsn = accumulator & 0x0F;
     U8 correction = 0;
     if (Flag(Flags::H) || (lsn > 9 && !sub)) correction = 0x06;
@@ -1021,14 +1119,14 @@ void CPU::DecimalAdjustAccumulator()
     carry = carry || (((accumulator & 0xF0) > 0x90 && correction == 0x06) && !sub);
     accumulator += Flag(Flags::N) ? -correction : correction;
     correction = 0;
-    
+
     const U8 msn = accumulator >> 4;
     if (carry || (msn > 0x9 && !sub)) correction = 0x60;
     carry = carry || correction == 0x60;
 
     accumulator += Flag(Flags::N) ? -correction : correction;
     Register(Register8::A, accumulator);
-    
+
     Flag(Flags::Z, accumulator == 0x00);
     Flag(Flags::H, false);
     Flag(Flags::C, carry);
@@ -1228,8 +1326,9 @@ void CPU::ShiftRight(Register8 reg)
 {
     PrintInstruction("sra r8");
 
+    const bool bit7 = Register(reg) & 0x80;
     const bool carry = Register(reg) & 0x01;
-    Register(reg, static_cast<U8>(Register(reg) >> 1));
+    Register(reg, static_cast<U8>(Register(reg) >> 1) | (bit7 ? 0x80 : 0x00));
 
     Flag(Flags::Z, Register(reg) == 0x00);
     Flag(Flags::N, false);
@@ -1258,7 +1357,7 @@ void CPU::Swap(Register8 reg)
     const U8 lsn = Register(reg) & 0x0F;
     const U8 hsn = Register(reg) & 0xF0;
 
-    Register(reg, static_cast<U8>(lsn << 8) | static_cast<U8>(hsn >> 8));
+    Register(reg, static_cast<U8>(lsn << 4) | static_cast<U8>(hsn >> 4));
 
     Flag(Flags::Z, Register(reg) == 0x00);
     Flag(Flags::N, false);
@@ -1313,13 +1412,13 @@ void CPU::JumpRelative()
 {
     PrintInstruction("jr imm8");
 
-    const S8 offset = ReadImm8();
+    const S8 offset = static_cast<S8>(ReadImm8());
     m_PC += offset;
 }
 
 void CPU::JumpRelativeConditional(U8 cond)
 {
-    const S8 offset = ReadImm8();
+    const S8 offset = static_cast<S8>(ReadImm8());
     PrintInstruction("jr {}, {}({:02X})", ConditionLiteral(cond), offset, static_cast<U8>(offset));
     if (Condition(cond)) m_PC += offset;
 }
@@ -1327,6 +1426,8 @@ void CPU::JumpRelativeConditional(U8 cond)
 void CPU::Return()
 {
     PrintInstruction("ret");
+
+    m_Interrupting = false;
 
     const Address address = Pop16();
     m_PC = address;
@@ -1384,13 +1485,14 @@ void CPU::EnableInterrupts()
     PrintInstruction("ei");
 
     m_IME_Next_Cycle = true;
+    m_Wait = 2;
 }
 
 void CPU::AddSP()
 {
     PrintInstruction("add sp, imm8");
 
-    const S8 imm8 = ReadImm8();
+    const S8 imm8 = static_cast<S8>(ReadImm8());
     const U16 sp = m_SP;
     const U16 result = static_cast<U16>(sp + imm8);
     m_SP = result;
