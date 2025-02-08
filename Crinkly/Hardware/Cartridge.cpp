@@ -36,6 +36,12 @@ void Cartridge::LoadROM()
 {
     VerifyNintendoLogo();
 
+    if (m_ROM.size() < 0x014F)
+    {
+        std::cerr << "ROM is too small to contain a header!\n";
+        return;
+    }
+    
     for (auto i = 0x134; i <= 0x142; i++)
     {
         m_Title += m_ROM[i];
@@ -86,6 +92,12 @@ void Cartridge::LoadROM()
 
 void Cartridge::VerifyNintendoLogo()
 {
+    if (m_ROM.size() < 0x014F)
+    {
+        std::cerr << "ROM is too small to contain a header!\n";
+        return;
+    }
+    
     for (auto i = 0x0104; i <= 0x0133; i++)
     {
         if (m_ROM[i] == k_NintendoLogo[i - 0x0104]) continue;
@@ -105,7 +117,14 @@ std::vector<Byte> Cartridge::ReadROM(Address start, Size length) const
     std::vector<Byte> data;
     for (Size i = start; i < start + length; i++)
     {
-        data.push_back(m_ROM[i]);
+        if (i < m_ROM.size())
+        {
+            data.push_back(m_ROM[i]);
+        }
+        else
+        {
+            data.push_back(0);
+        }
     }
 
     return data;

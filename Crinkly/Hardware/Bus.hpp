@@ -25,8 +25,8 @@ public:
 
     void Write(Address, Byte);
     
-private:
     std::shared_ptr<Cartridge> m_Cartridge;
+private:
 
     std::vector<Byte> m_CartridgeROM_Bank0;
     std::vector<Byte> m_CartridgeROM_Bank1;

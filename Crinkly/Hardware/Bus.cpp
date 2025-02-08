@@ -1,6 +1,7 @@
 #include "Bus.hpp"
 
 #include <iostream>
+#include <print>
 
 Bus::Bus()
 {
@@ -20,16 +21,13 @@ void Bus::InsertCartridge(const std::string& cartridge)
     cartridgeName = SplitString(SplitString(cartridge, "\\").back(), ".")[0];
 
     m_Cartridge = std::make_shared<Cartridge>(cartridge);
-
+    
     m_CartridgeROM_Bank0 = m_Cartridge->ReadROM(0, CARTRIDGE_BANK_ROM_SIZE);
     m_CartridgeROM_Bank1 = m_Cartridge->ReadROM(CARTRIDGE_BANK_ROM_SIZE, CARTRIDGE_BANK_ROM_SIZE);
 }
 
 Byte Bus::Read(Address address)
 {
-    Byte value = 0x90;
-    m_IO_Registers[0x44] = value;
-
     if (address < 0x4000) return m_CartridgeROM_Bank0[address];
     else if (address < 0x8000) return m_CartridgeROM_Bank1[address - 0x4000];
     else if (address < 0xA000) return m_VideoRAM[address - 0x8000];
@@ -69,11 +67,11 @@ void Bus::Write(Address address, Byte value)
     else if (address < 0xC000) m_CartridgeRAM[address - 0xA000] = value;
     else if (address < 0xE000) m_WorkRAM[address - 0xC000] = value;
     else if (address >= 0xFE00 && address < 0xFEA0) m_OAM[address - 0xFE00] = value;
-    else if (address < 0xFEFF)
+    else if (address < 0xFF00)
     {
         std::cerr << std::format("Attempted to write to prohibited memory address: {:04X}\n", address);
     }
-    else if (address < 0xFF7F) m_IO_Registers[address - 0xFF00] = value;
+    else if (address < 0xFF80) m_IO_Registers[address - 0xFF00] = value;
     else if (address < 0xFFFF) m_HighRAM[address - 0xFF80] = value;
     else m_InterruptEnable = value;
 }

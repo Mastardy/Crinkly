@@ -17,7 +17,7 @@ void GameBoyConsole::InsertCartridge(const std::string& cartridge) const
 {
     m_Bus->InsertCartridge(cartridge);
     m_CPU->Bootstrap();
-    m_CPU->Step(0x100);
+    m_CPU->Step(m_Bus->m_Cartridge->m_ROM.size() < 0x014F ? 0 : 0x100);
 }
 
 void GameBoyConsole::EjectCartridge()

@@ -47,8 +47,8 @@ public:
 
 public:
     CPU(const std::shared_ptr<Bus>& bus);
-    ~CPU();
-    
+
+    void SavePixels();    
     void Bootstrap();
     
     U8 Register(Register8 reg);
@@ -221,5 +221,4 @@ private:
     bool m_IME_Next_Cycle;
     bool m_Interrupting;
     U8 m_Wait;
-    std::ofstream m_Log;
 };

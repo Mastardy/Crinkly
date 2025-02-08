@@ -1,16 +1,14 @@
 #include "CPU.hpp"
 
+#include <filesystem>
 #include <iostream>
 #include <print>
 #include <thread>
 
-static std::array<U8, 4> PCMEM;
-static std::string str;
-static std::string word;
+#define PRINT_INSTRUCTION
 
-// #define PRINT_INSTRUCTION
-
-static int lineCounter = 0;
+static int gpuCounter = 0;
+static int frame = 0;
 static int counter = 0;
 static int lastCounter = 0;
 
@@ -58,11 +56,6 @@ CPU::CPU(const std::shared_ptr<Bus>& bus)
     m_Wait = 0;
 }
 
-CPU::~CPU()
-{
-    m_Log.close();
-}
-
 void CPU::Bootstrap()
 {
     Register(Register8::A, 0x01);
@@ -75,10 +68,40 @@ void CPU::Bootstrap()
     Register(Register8::L, 0x4D);
     Register(Register16::SP, 0xFFFE);
     Register(Register16::PC, 0x0100);
-
-    if (const auto bus = m_Bus.lock())
+    if (auto bus = m_Bus.lock())
     {
-        m_Log.open(bus->CartridgeName() + ".log");
+        bus->Write(0xFF00, 0xFF);
+        bus->Write(0xFF05, 0x00);
+        bus->Write(0xFF06, 0x00);
+        bus->Write(0xFF07, 0x00);
+        bus->Write(0xFF10, 0x80);
+        bus->Write(0xFF11, 0xBF);
+        bus->Write(0xFF12, 0xF3);
+        bus->Write(0xFF14, 0xBF);
+        bus->Write(0xFF16, 0x3F);
+        bus->Write(0xFF17, 0x00);
+        bus->Write(0xFF19, 0xBF);
+        bus->Write(0xFF1A, 0x7F);
+        bus->Write(0xFF1B, 0xFF);
+        bus->Write(0xFF1C, 0x9F);
+        bus->Write(0xFF1E, 0xBF);
+        bus->Write(0xFF20, 0xFF);
+        bus->Write(0xFF21, 0x00);
+        bus->Write(0xFF22, 0x00);
+        bus->Write(0xFF23, 0xBF);
+        bus->Write(0xFF24, 0x77);
+        bus->Write(0xFF25, 0xF3);
+        bus->Write(0xFF26, 0xF1);
+        bus->Write(0xFF40, 0x91);
+        bus->Write(0xFF42, 0x00);
+        bus->Write(0xFF43, 0x00);
+        bus->Write(0xFF45, 0x00);
+        bus->Write(0xFF47, 0xFC);
+        bus->Write(0xFF48, 0xFF);
+        bus->Write(0xFF49, 0xFF);
+        bus->Write(0xFF4A, 0x00);
+        bus->Write(0xFF4B, 0x00);
+        bus->Write(0xFFFF, 0x00);
     }
 }
 
@@ -210,6 +233,9 @@ U8 CPU::ReadImm8()
 {
     if (const auto bus = m_Bus.lock())
     {
+#ifdef PRINT_INSTRUCTION
+        std::println("Reading from 0x{:04X} -> {:02X}", m_PC, bus->Read(m_PC));
+#endif
         return bus->Read(m_PC++);
     }
 
@@ -220,6 +246,10 @@ U16 CPU::ReadImm16()
 {
     if (const auto bus = m_Bus.lock())
     {
+#ifdef PRINT_INSTRUCTION
+        std::println("Reading from 0x{:04X} -> {:02X}", m_PC, bus->Read(m_PC));
+        std::println("Reading from 0x{:04X} -> {:02X}", m_PC + 1, bus->Read(m_PC + 1));
+#endif
         return static_cast<U16>(bus->Read(m_PC++)) | static_cast<U16>(bus->Read(m_PC++) << 8);
     }
 
@@ -276,34 +306,106 @@ U16 CPU::Pop16()
 #pragma endregion
 #pragma endregion
 
+void CPU::SavePixels()
+{
+    if (const auto bus = m_Bus.lock())
+    {
+        std::string folder = std::format("frames/{}/Tile Blocks", bus->CartridgeName());
+        std::filesystem::create_directories(folder);
+
+        std::ofstream tileBlock(std::format("{}/{}.bmp", folder, frame));
+
+        U8 header[54] = {
+            0x42, 0x4D,
+            0, 0, 0, 0,
+            0, 0, 0, 0,
+            54, 0, 0, 0,
+            40, 0, 0, 0,
+            128, 0, 0, 0,
+            192, 0, 0, 0,
+            1, 0,
+            24, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 0
+        };
+
+        int fileSize = 54 + 192 * 128 * 3;
+        header[2] = static_cast<U8>(fileSize & 0xFF);
+        header[3] = static_cast<U8>((fileSize >> 8) & 0xFF);
+        header[4] = static_cast<U8>((fileSize >> 16) & 0xFF);
+        header[5] = static_cast<U8>((fileSize >> 24) & 0xFF);
+
+        tileBlock.write(reinterpret_cast<char*>(header), 54);
+
+        for (S32 ty = 23; ty >= 0; ty--)
+        {
+            for (S32 y = 7; y >= 0; y--)
+            {
+                for (S32 tx = 0; tx < 16; tx++)
+                {
+                    for (S32 x = 0; x < 8; x++)
+                    {
+                        U16 byteStride = static_cast<U16>(ty * 16 + tx) * 16;
+                        U16 address = 0x8000 + byteStride + static_cast<U16>(y * 2) + static_cast<U16>(floor(x / 4));
+                        U8 byte = bus->Read(address);
+                        if (byte != 0x00)
+                        {
+                            std::println("Byte {:04X}: {:02X}", address, byte);
+                        }
+                        U8 bit = (byte >> static_cast<U8>(6 - (x % 4) * 2)) & 0x03;
+                        tileBlock.put(bit * 85);
+                        tileBlock.put(bit * 85);
+                        tileBlock.put(bit * 85);
+                    }
+                }
+            }
+        }
+
+        system("pause");
+    }
+}
+
 void CPU::Step()
 {
     if (auto bus = m_Bus.lock())
     {
         while (m_PC < 0xFFFF)
         {
-            PCMEM[0] = bus->Read(m_PC);
-            PCMEM[1] = bus->Read(m_PC + 1);
-            PCMEM[2] = bus->Read(m_PC + 2);
-            PCMEM[3] = bus->Read(m_PC + 3);
+            if (Register(Register8::A) == 0x42 && Register(Register8::B) == 0x42 && Register(Register8::C) == 0x42 &&
+                Register(Register8::D) == 0x42 && Register(Register8::E) == 0x42 && Register(Register8::H) == 0x42
+                && Register(Register8::L) == 0x42)
+            {
+                system("pause");
+            }
 
-            str = std::format(
-                "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}",
-                Register(Register8::A), Register(Register8::F), Register(Register8::B), Register(Register8::C),
-                Register(Register8::D), Register(Register8::E), Register(Register8::H), Register(Register8::L),
-                Register(Register16::SP), Register(Register16::PC), PCMEM[0], PCMEM[1], PCMEM[2], PCMEM[3]);
-            m_Log << str << '\n';
+            if (Register(Register8::B) == 3 && Register(Register8::C) == 5 && Register(Register8::D) == 8 &&
+                Register(Register8::E) == 13 && Register(Register8::H) == 21 && Register(Register8::L) == 34)
+            {
+                system("pause");
+            }
 
-            if (++lineCounter % 100000 == 0) std::println("{}", lineCounter);
-            
+            bus->Write(0xFF44, static_cast<U8>(gpuCounter / 456));
+            bus->Write(0xFF47, 0xE4);
+
+            if (++gpuCounter > 70224)
+            {
+                SavePixels();
+                gpuCounter = 0;
+                frame++;
+            }
+
             auto TAC = bus->Read(0xFF07);
             auto TMA = bus->Read(0xFF06);
             auto TIMA = bus->Read(0xFF05);
-            
+
             if (TAC & 0x04)
             {
                 ++counter;
-                
+
                 if ((TAC & 0x03) == 0x03)
                 {
                     if (counter - lastCounter >= 64)
@@ -432,15 +534,7 @@ void CPU::Step()
 
             if (bus->Read(0xFF02) == 0x81)
             {
-                char c = static_cast<char>(bus->Read(0xFF01));
-                if (c == ' ' || c == '\n') word = "";
-                else word += c;
-                std::print("{}", c);
-                if (word == "Passed" || word == "Failed")
-                {
-                    std::print("{}", '\n');
-                    break;
-                }
+                std::print("{}", static_cast<char>(bus->Read(0xFF01)));
                 bus->Write(0xFF02, 0x0);
             }
 
@@ -833,18 +927,27 @@ void CPU::LoadAccumulatorToR16Address(Register16 reg)
         const Address address = Register(reg);
         bus->Write(address, data);
 
-        if (address == 0xFF0F)
-        {
-            std::println("Address: {:04X} -> {:02X}", address, data);
-        }
-
         if (reg == Register16::HLd)
         {
-            Register(Register16::HL, address - 1);
+            if (address == 0x0000)
+            {
+                Register(Register16::HL, 0xFFFF);
+            }
+            else
+            {
+                Register(Register16::HL, address - 1);
+            }
         }
         else if (reg == Register16::HLi)
         {
-            Register(Register16::HL, address + 1);
+            if (address == 0xFFFF)
+            {
+                Register(Register16::HL, 0x0000);
+            }
+            else
+            {
+                Register(Register16::HL, address + 1);
+            }
         }
     }
 }
@@ -866,11 +969,25 @@ void CPU::LoadR16AddressToAccumulator(Register16 reg)
 
         if (reg == Register16::HLd)
         {
-            Register(Register16::HL, Register(Register16::HL) - 1);
+            if (Register(Register16::HL) == 0x0000)
+            {
+                Register(Register16::HL, 0xFFFF);
+            }
+            else
+            {
+                Register(Register16::HL, Register(Register16::HL) - 1);
+            }
         }
         else if (reg == Register16::HLi)
         {
-            Register(Register16::HL, Register(Register16::HL) + 1);
+            if (Register(Register16::HL) == 0xFFFF)
+            {
+                Register(Register16::HL, 0x0000);
+            }
+            else
+            {
+                Register(Register16::HL, Register(Register16::HL) + 1);
+            }
         }
     }
 }
@@ -923,7 +1040,7 @@ void CPU::LoadR8ToR8(Register8 left, Register8 right)
 
 void CPU::LoadHighToAccumulator(Register8 reg)
 {
-    PrintInstruction("ldh a, [{}]", reg == Register8::C ? "c" : "imm8");
+    PrintInstruction("ldh a, [{}]", RegisterLiteral(reg));
 
     if (const auto bus = m_Bus.lock())
     {
@@ -934,16 +1051,11 @@ void CPU::LoadHighToAccumulator(Register8 reg)
 
 void CPU::LoadHighFromAccumulator(Register8 reg)
 {
-    PrintInstruction("ldh [{}], a", reg == Register8::C ? "c" : "imm8");
+    PrintInstruction("ldh [{}], a", RegisterLiteral(reg));
 
     if (const auto bus = m_Bus.lock())
     {
         const Address address = 0xFF00 + Register(reg);
-        if (address == 0xFF07)
-        {
-            std::println("Test");
-            lastCounter = counter;
-        }
         bus->Write(address, Register(Register8::A));
     }
 }
@@ -954,7 +1066,7 @@ void CPU::LoadHighFromAccumulator(Register8 reg)
 
 void CPU::Add(Register8 reg)
 {
-    PrintInstruction("add a, {}", reg == Register8::Imm8 ? "imm8" : "r8");
+    PrintInstruction("add a, {}", RegisterLiteral(reg));
 
     const U8 accumulator = Register(Register8::A);
     const U8 value = Register(reg);
@@ -970,7 +1082,7 @@ void CPU::Add(Register8 reg)
 
 void CPU::Adc(Register8 reg)
 {
-    PrintInstruction("adc a, r8");
+    PrintInstruction("adc a, {}", RegisterLiteral(reg));
 
     const bool carry = Flag(Flags::C);
     const U8 accumulator = Register(Register8::A);
@@ -987,7 +1099,7 @@ void CPU::Adc(Register8 reg)
 
 void CPU::Sub(Register8 reg)
 {
-    PrintInstruction("sub a, r8");
+    PrintInstruction("sub a, {}", RegisterLiteral(reg));
 
     const U8 accumulator = Register(Register8::A);
     const U8 value = Register(reg);
@@ -1003,7 +1115,7 @@ void CPU::Sub(Register8 reg)
 
 void CPU::Sbc(Register8 reg)
 {
-    PrintInstruction("sbc a, r8");
+    PrintInstruction("sbc a, {}", RegisterLiteral(reg));
 
     const bool carry = Flag(Flags::C);
     const U8 accumulator = Register(Register8::A);
@@ -1020,7 +1132,7 @@ void CPU::Sbc(Register8 reg)
 
 void CPU::And(Register8 reg)
 {
-    PrintInstruction("and a, r8");
+    PrintInstruction("and a, {}", RegisterLiteral(reg));
 
     const U8 accumulator = Register(Register8::A);
     const U8 value = Register(reg);
@@ -1036,7 +1148,7 @@ void CPU::And(Register8 reg)
 
 void CPU::Xor(Register8 reg)
 {
-    PrintInstruction("xor a, r8");
+    PrintInstruction("xor a, {}", RegisterLiteral(reg));
 
     const U8 accumulator = Register(Register8::A);
     const U8 value = Register(reg);
