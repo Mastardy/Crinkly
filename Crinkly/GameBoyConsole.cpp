@@ -5,7 +5,8 @@
 GameBoyConsole::GameBoyConsole()
 {
     m_Bus = std::make_shared<Bus>();
-    m_CPU = std::make_shared<CPU>(m_Bus);
+    m_LCD = std::make_shared<LCD>(m_Bus);
+    m_CPU = std::make_shared<CPU>(m_Bus, m_LCD);
 }
 
 GameBoyConsole::~GameBoyConsole()

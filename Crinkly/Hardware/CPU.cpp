@@ -5,14 +5,14 @@
 #include <print>
 #include <thread>
 
-#define PRINT_INSTRUCTION
+// #define PRINT_INSTRUCTION
 
 static int gpuCounter = 0;
 static int frame = 0;
 static int counter = 0;
 static int lastCounter = 0;
 
-CPU::CPU(const std::shared_ptr<Bus>& bus)
+CPU::CPU(const std::shared_ptr<Bus>& bus, const std::shared_ptr<LCD>& lcd)
 {
     m_Registers[Register8::A] = 0;
     m_Registers[Register8::B] = 0;
@@ -22,8 +22,10 @@ CPU::CPU(const std::shared_ptr<Bus>& bus)
     m_Registers[Register8::F] = 0;
     m_Registers[Register8::H] = 0;
     m_Registers[Register8::L] = 0;
+    
     m_Bus = bus;
-
+    m_LCD = lcd;
+    
     m_R8[0] = Register8::B;
     m_R8[1] = Register8::C;
     m_R8[2] = Register8::D;
@@ -54,6 +56,8 @@ CPU::CPU(const std::shared_ptr<Bus>& bus)
     m_IME_Next_Cycle = false;
     m_Interrupting = false;
     m_Wait = 0;
+
+    m_Log.open(std::format("{}.log", bus->CartridgeName()));
 }
 
 void CPU::Bootstrap()
@@ -308,6 +312,7 @@ U16 CPU::Pop16()
 
 void CPU::SavePixels()
 {
+    return;
     if (const auto bus = m_Bus.lock())
     {
         std::string folder = std::format("frames/{}/Tile Blocks", bus->CartridgeName());
@@ -349,17 +354,168 @@ void CPU::SavePixels()
                 {
                     for (S32 x = 0; x < 8; x++)
                     {
-                        U16 byteStride = static_cast<U16>(ty * 16 + tx) * 16;
-                        U16 address = 0x8000 + byteStride + static_cast<U16>(y * 2) + static_cast<U16>(floor(x / 4));
-                        U8 byte = bus->Read(address);
-                        if (byte != 0x00)
+                        if (tx == 0 && x == 0 || (tx == 15 && x == 7))
                         {
-                            std::println("Byte {:04X}: {:02X}", address, byte);
+                            if (ty < 8)
+                            {
+                                tileBlock.put(static_cast<U8>(255));
+                                tileBlock.put(0);
+                                tileBlock.put(0);
+                            }
+                            else if (ty < 16)
+                            {
+                                tileBlock.put(0);
+                                tileBlock.put(static_cast<U8>(255));
+                                tileBlock.put(0);
+                            }
+                            else
+                            {
+                                tileBlock.put(0);
+                                tileBlock.put(0);
+                                tileBlock.put(static_cast<U8>(255));
+                            }
+                            continue;
                         }
-                        U8 bit = (byte >> static_cast<U8>(6 - (x % 4) * 2)) & 0x03;
-                        tileBlock.put(bit * 85);
-                        tileBlock.put(bit * 85);
-                        tileBlock.put(bit * 85);
+                        else if (y == 7)
+                        {
+                            if (ty == 7)
+                            {
+                                tileBlock.put(static_cast<U8>(255));
+                                tileBlock.put(0);
+                                tileBlock.put(0);
+                                continue;
+                            }
+                            else if (ty == 15)
+                            {
+                                tileBlock.put(0);
+                                tileBlock.put(static_cast<U8>(255));
+                                tileBlock.put(0);
+                                continue;
+                            }
+                            else if (ty == 23)
+                            {
+                                tileBlock.put(0);
+                                tileBlock.put(0);
+                                tileBlock.put(static_cast<U8>(255));
+                                continue;
+                            }
+                        }
+                        else if (y == 0)
+                        {
+                            if (ty == 0)
+                            {
+                                tileBlock.put(static_cast<U8>(255));
+                                tileBlock.put(0);
+                                tileBlock.put(0);
+                                continue;
+                            }
+                            else if (ty == 8)
+                            {
+                                tileBlock.put(0);
+                                tileBlock.put(static_cast<U8>(255));
+                                tileBlock.put(0);
+                                continue;
+                            }
+                            else if (ty == 16)
+                            {
+                                tileBlock.put(0);
+                                tileBlock.put(0);
+                                tileBlock.put(static_cast<U8>(255));
+                                continue;
+                            }
+                        }
+
+                        U16 byteStride = static_cast<U16>(ty * 16 + tx) * 16;
+                        U16 address = 0x8000 + byteStride + static_cast<U16>(y * 2);
+
+                        U8 leftByte = bus->Read(address);
+                        U8 rightByte = bus->Read(address + 1);
+
+                        U8 lsb = (leftByte >> static_cast<U8>(7 - x)) & 0x01;
+                        U8 msb = (rightByte >> static_cast<U8>(7 - x)) & 0x01;
+
+                        U8 pixel = static_cast<U8>(msb << 1) | lsb;
+
+                        tileBlock.put(pixel * 85);
+                        tileBlock.put(pixel * 85);
+                        tileBlock.put(pixel * 85);
+                    }
+                }
+            }
+        }
+
+        folder = std::format("frames/{}/Tile Maps", bus->CartridgeName());
+        std::filesystem::create_directories(folder);
+
+        std::ofstream tileMap1(std::format("{}/1-{}.bmp", folder, frame));
+        std::ofstream tileMap2(std::format("{}/2-{}.bmp", folder, frame));
+
+        U8 tileMapHeader[54] = {
+            0x42, 0x4D,
+            0, 0, 0, 0,
+            0, 0, 0, 0,
+            54, 0, 0, 0,
+            40, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 1, 0, 0,
+            1, 0,
+            24, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 0
+        };
+
+        fileSize = 54 + 256 * 256 * 3;
+        tileMapHeader[2] = static_cast<U8>(fileSize & 0xFF);
+        tileMapHeader[3] = static_cast<U8>((fileSize >> 8) & 0xFF);
+        tileMapHeader[4] = static_cast<U8>((fileSize >> 16) & 0xFF);
+        tileMapHeader[5] = static_cast<U8>((fileSize >> 24) & 0xFF);
+
+        tileMap1.write(reinterpret_cast<char*>(tileMapHeader), 54);
+        tileMap2.write(reinterpret_cast<char*>(tileMapHeader), 54);
+
+        for (S32 ty = 31; ty >= 0; ty--)
+        {
+            for (S32 y = 7; y >= 0; y--)
+            {
+                for (S32 tx = 0; tx < 32; tx++)
+                {
+                    for (S32 x = 0; x < 8; x++)
+                    {
+                        U16 addressOffset = 0x9800 + static_cast<U16>(ty * 32 + tx);
+                        U16 tileIndex = bus->Read(addressOffset);
+                        U16 address = 0x8000 + tileIndex * 16 + static_cast<U16>(y * 2);
+
+                        U8 leftByte = bus->Read(address);
+                        U8 rightByte = bus->Read(address + 1);
+
+                        U8 lsb = (leftByte >> static_cast<U8>(7 - x)) & 0x01;
+                        U8 msb = (rightByte >> static_cast<U8>(7 - x)) & 0x01;
+
+                        U8 pixel = static_cast<U8>(msb << 1) | lsb;
+
+                        tileMap1.put(pixel * 85);
+                        tileMap1.put(pixel * 85);
+                        tileMap1.put(pixel * 85);
+
+                        addressOffset = 0x9C00 + static_cast<U16>(ty * 32 + tx);
+                        tileIndex = bus->Read(addressOffset);
+                        address = 0x8000 + tileIndex * 16 + static_cast<U16>(y * 2);
+
+                        leftByte = bus->Read(address);
+                        rightByte = bus->Read(address + 1);
+
+                        lsb = (leftByte >> static_cast<U8>(7 - x)) & 0x01;
+                        msb = (rightByte >> static_cast<U8>(7 - x)) & 0x01;
+
+                        pixel = static_cast<U8>(msb << 1) | lsb;
+
+                        tileMap2.put(pixel * 85);
+                        tileMap2.put(pixel * 85);
+                        tileMap2.put(pixel * 85);
                     }
                 }
             }
@@ -369,31 +525,49 @@ void CPU::SavePixels()
     }
 }
 
+std::string str;
+U8 PCMEM[4];
+
 void CPU::Step()
 {
     if (auto bus = m_Bus.lock())
     {
         while (m_PC < 0xFFFF)
         {
+            bus->Write(0xFF00, 0xFF);
+
             if (Register(Register8::A) == 0x42 && Register(Register8::B) == 0x42 && Register(Register8::C) == 0x42 &&
                 Register(Register8::D) == 0x42 && Register(Register8::E) == 0x42 && Register(Register8::H) == 0x42
                 && Register(Register8::L) == 0x42)
             {
+                std::println("Failed!");
                 system("pause");
             }
 
             if (Register(Register8::B) == 3 && Register(Register8::C) == 5 && Register(Register8::D) == 8 &&
                 Register(Register8::E) == 13 && Register(Register8::H) == 21 && Register(Register8::L) == 34)
             {
+                std::println("Success!");
                 system("pause");
             }
 
             bus->Write(0xFF44, static_cast<U8>(gpuCounter / 456));
-            bus->Write(0xFF47, 0xE4);
 
+            // 167_850
+
+            if (bus->Read(0xFF44) == bus->Read(0xFF45))
+            {
+                bus->Write(0xFF41, bus->Read(0xFF41) | 0x04);
+            }
+
+            bus->Write(0xFF47, 0xE4);
+            
             if (++gpuCounter > 70224)
             {
-                SavePixels();
+                if (auto lcd = m_LCD.lock())
+                {
+                    lcd->Render();
+                }
                 gpuCounter = 0;
                 frame++;
             }
@@ -519,6 +693,18 @@ void CPU::Step()
                     }
                 }
             }
+
+            /*PCMEM[0] = bus->Read(m_PC);
+            PCMEM[1] = bus->Read(m_PC + 1);
+            PCMEM[2] = bus->Read(m_PC + 2);
+            PCMEM[3] = bus->Read(m_PC + 3);
+
+            str = std::format(
+                "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}",
+                Register(Register8::A), Register(Register8::F), Register(Register8::B), Register(Register8::C),
+                Register(Register8::D), Register(Register8::E), Register(Register8::H), Register(Register8::L),
+                Register(Register16::SP), Register(Register16::PC), PCMEM[0], PCMEM[1], PCMEM[2], PCMEM[3]);
+            m_Log << str << '\n';*/
 
             const auto opcode = bus->Read(m_PC++);
             const auto block = opcode & 0xC0;

@@ -37,6 +37,7 @@ Byte Bus::Read(Address address)
     else if (address < 0xFEFF)
     {
         std::cerr << std::format("Attempted to read prohibited memory address: {:04X}\n", address);
+        return 0xFF;
     }
     else if (address < 0xFF7F) return m_IO_Registers[address - 0xFF00];
     else if (address < 0xFFFF) return m_HighRAM[address - 0xFF80];
@@ -59,9 +60,15 @@ std::vector<Byte> Bus::Read(Address start, Size length)
 
 void Bus::Write(Address address, Byte value)
 {
+    if (address == 0xFF40)
+    {
+        std::println("LCDC: {:02X}", value);
+        std::println("{}", value & 0x80 ? "LCD is on" : "LCD is off");
+    }
+    
     if (address < 0x8000)
     {
-        std::cerr << "Attempted to write to ROM: " << address << '\n';
+        std::cerr << std::format("Attempted to write to ROM: {:04X}\n", address);
     }
     else if (address < 0xA000) m_VideoRAM[address - 0x8000] = value;
     else if (address < 0xC000) m_CartridgeRAM[address - 0xA000] = value;

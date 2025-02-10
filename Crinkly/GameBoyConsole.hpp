@@ -5,6 +5,7 @@
 #include "Hardware/Bus.hpp"
 #include "Hardware/Cartridge.hpp"
 #include "Hardware/CPU.hpp"
+#include "Hardware/LCD.hpp"
 #include "Utility/Utils.hpp"
 #include "Utility/Types.hpp"
 
@@ -34,5 +35,6 @@ public:
 private:
     std::shared_ptr<Bus> m_Bus;
     std::shared_ptr<CPU> m_CPU;
+    std::shared_ptr<LCD> m_LCD;
     std::shared_ptr<Cartridge> m_Cartridge;
 };

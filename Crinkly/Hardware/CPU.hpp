@@ -5,10 +5,12 @@
 #include <memory>
 
 #include "Bus.hpp"
+#include "LCD.hpp"
 #include "Utility/Types.hpp"
 
 class CPU
 {
+    std::ofstream m_Log;
 public:
     enum class Register8 : U8
     {
@@ -46,7 +48,7 @@ public:
     };
 
 public:
-    CPU(const std::shared_ptr<Bus>& bus);
+    CPU(const std::shared_ptr<Bus>& bus, const std::shared_ptr<LCD>& lcd);
 
     void SavePixels();    
     void Bootstrap();
@@ -209,6 +211,7 @@ public:
 private:
     std::map<Register8, U8> m_Registers;
     std::weak_ptr<Bus> m_Bus;
+    std::weak_ptr<LCD> m_LCD;
 
     std::map<U8, Register8> m_R8;
     std::map<U8, Register16> m_R16;
