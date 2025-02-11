@@ -204,24 +204,73 @@ void LCD::Render()
                 {
                     for (S32 x = 0; x < 8; x++)
                     {
-                        U16 addressOffset = 0x9800 + static_cast<U16>(ty * 32 + tx);
-                        U16 tileIndex = bus->Read(addressOffset);
-                        U16 address = 0x8000 + tileIndex * 16 + static_cast<U16>(y * 2);
+                        U8 color = 0x00;
 
-                        U8 leftByte = bus->Read(address);
-                        U8 rightByte = bus->Read(address + 1);
+                        for (auto i = 0; i < 2; i++)
+                        {
+                            U16 offsetY = bus->Read(i == 0 ? 0xFF42 : 0xFF4A);
+                            U16 offsetX = bus->Read(i == 0 ? 0xFF43 : 0xFF4B);
 
-                        U8 lsb = (leftByte >> static_cast<U8>(7 - x)) & 0x01;
-                        U8 msb = (rightByte >> static_cast<U8>(7 - x)) & 0x01;
+                            U16 tileY = (offsetY / 8 + static_cast<U16>(ty)) % 32;
+                            U16 tileX = (offsetX / 8 + static_cast<U16>(tx)) % 32;
 
-                        U8 pixel = static_cast<U8>(msb << 1) | lsb;
+                            U16 addressOffset = (i == 0 ? 0x9800 : 0x9C00) + static_cast<U16>(tileY * 32 + tileX);
+                            U16 tileIndex = bus->Read(addressOffset);
+                            U16 address = 0x8000 + tileIndex * 16 + static_cast<U16>(y * 2);
+                            U8 leftByte = bus->Read(address);
+                            U8 rightByte = bus->Read(address + 1);
+                            U8 lsb = (leftByte >> static_cast<U8>(7 - x)) & 0x01;
+                            U8 msb = (rightByte >> static_cast<U8>(7 - x)) & 0x01;
+                            U8 pixel = static_cast<U8>(msb << 1) | lsb;
 
-                        U8 color = pixel * 85;
-                        
+                            color |= pixel * 85;
+                        }
+
                         m_ViewBuffer.push_back(color);
                         m_ViewBuffer.push_back(color);
                         m_ViewBuffer.push_back(color);
                     }
+                }
+            }
+        }
+
+        for (U16 address = 0xFE00; address < 0xFE9F; address += 4)
+        {
+            U8 ty = bus->Read(address);
+            U8 tx = bus->Read(address + 1);
+            U8 tileIndex = bus->Read(address + 2);
+            U8 flags = bus->Read(address + 3);
+
+            if (ty == 0 || tx == 0 || ty >= 160 || tx >= 168) continue;
+
+            U8 LCDC = bus->Read(0xFF40);
+            bool longTile = LCDC & 0x04;
+            
+            for (S8 j = 7; j >= 0; j--)
+            {
+                for (S8 i = 0; i < 8; i++)
+                {
+                    U8 y = static_cast<U8>(ty + j);
+                    U8 x = static_cast<U8>(tx + i);
+
+                    if (x < 8 || x >= 160 || y < 16 || y >= 144) continue;
+
+                    U32 index = ((y - 16) * 160 + (x - 8)) * 3;
+                    U8 tile = bus->Read(0x8000 + (longTile ? tileIndex & 0xFE : tileIndex));
+
+                    U16 address = 0x8000 + tile * 16 + static_cast<U16>(j * 2);
+                    U8 leftByte = bus->Read(address);
+                    U8 rightByte = bus->Read(address + 1);
+                    U8 lsb = (leftByte >> static_cast<U8>(7 - i)) & 0x01;
+                    U8 msb = (rightByte >> static_cast<U8>(7 - i)) & 0x01;
+
+                    U8 pixel = static_cast<U8>(msb << 1) | lsb;
+
+                    U8 color = pixel * 85;
+                    
+                    m_ViewBuffer[index] |= color;
+                    m_ViewBuffer[index + 1] |= color;
+                    m_ViewBuffer[index + 2] |= color;
                 }
             }
         }
