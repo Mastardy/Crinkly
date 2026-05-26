@@ -1,5 +1,6 @@
 #pragma once
 
+// ReSharper disable once CppUnusedIncludeDirective
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -16,7 +17,7 @@ public:
 private:
     GLFWwindow* m_Window;
     GLFWwindow* m_WindowDebug;
-    
+
     std::weak_ptr<Bus> m_Bus;
 
     unsigned int m_VAO = 0;

@@ -39,6 +39,7 @@ Byte Bus::Read(Address address)
         std::cerr << std::format("Attempted to read prohibited memory address: {:04X}\n", address);
         return 0xFF;
     }
+    else if (address >= 0xFF04 && address < 0xFF08) return m_Timer->Read(address);
     else if (address < 0xFF7F) return m_IO_Registers[address - 0xFF00];
     else if (address < 0xFFFF) return m_HighRAM[address - 0xFF80];
     else return m_InterruptEnable;
@@ -72,6 +73,7 @@ void Bus::Write(Address address, Byte value)
     else if (address < 0xC000) m_CartridgeRAM[address - 0xA000] = value;
     else if (address < 0xE000) m_WorkRAM[address - 0xC000] = value;
     else if (address >= 0xFE00 && address < 0xFEA0) m_OAM[address - 0xFE00] = value;
+    else if (address >= 0xFF04 && address < 0xFF08) m_Timer->Write(address, value);
     else if (address < 0xFF00)
     {
         std::cerr << std::format("Attempted to write to prohibited memory address: {:04X}\n", address);

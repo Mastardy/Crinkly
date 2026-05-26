@@ -4,7 +4,9 @@
 
 GameBoyConsole::GameBoyConsole()
 {
+    m_Timer = std::make_shared<Timer>();
     m_Bus = std::make_shared<Bus>();
+    
     m_LCD = std::make_shared<LCD>(m_Bus);
     m_CPU = std::make_shared<CPU>(m_Bus, m_LCD);
 }
@@ -24,4 +26,9 @@ void GameBoyConsole::InsertCartridge(const std::string& cartridge) const
 void GameBoyConsole::EjectCartridge()
 {
     m_Cartridge.reset();
+}
+
+void GameBoyConsole::Run()
+{
+    
 }

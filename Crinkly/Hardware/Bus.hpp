@@ -5,6 +5,7 @@
 #include "Cartridge.hpp"
 #include "Utility/Types.hpp"
 #include "Utility/Utils.hpp"
+#include "Hardware/Timer.hpp"
 
 class Bus
 {
@@ -36,7 +37,8 @@ private:
     std::vector<Byte> m_OAM;
     std::vector<Byte> m_IO_Registers;
     std::vector<Byte> m_HighRAM;
-    Byte m_InterruptEnable;
 
+    std::shared_ptr<Timer> m_Timer;
+    Byte m_InterruptEnable;
     std::string m_CartridgeName;
 };
