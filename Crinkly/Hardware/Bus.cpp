@@ -18,10 +18,10 @@ Bus::Bus()
 
 void Bus::InsertCartridge(const std::string& cartridge)
 {
-    cartridgeName = SplitString(SplitString(cartridge, "\\").back(), ".")[0];
+    m_CartridgeName = SplitString(SplitString(cartridge, "\\").back(), ".")[0];
 
     m_Cartridge = std::make_shared<Cartridge>(cartridge);
-    
+
     m_CartridgeROM_Bank0 = m_Cartridge->ReadROM(0, CARTRIDGE_BANK_ROM_SIZE);
     m_CartridgeROM_Bank1 = m_Cartridge->ReadROM(CARTRIDGE_BANK_ROM_SIZE, CARTRIDGE_BANK_ROM_SIZE);
 }
@@ -42,8 +42,6 @@ Byte Bus::Read(Address address)
     else if (address < 0xFF7F) return m_IO_Registers[address - 0xFF00];
     else if (address < 0xFFFF) return m_HighRAM[address - 0xFF80];
     else return m_InterruptEnable;
-
-    return 0x0;
 }
 
 std::vector<Byte> Bus::Read(Address start, Size length)
@@ -52,7 +50,7 @@ std::vector<Byte> Bus::Read(Address start, Size length)
 
     for (Size i = start; i < start + length; i++)
     {
-        data.emplace_back(Read(static_cast<Address>(i)));
+        data[i - start] = Read(static_cast<Address>(i));
     }
 
     return data;
@@ -65,7 +63,7 @@ void Bus::Write(Address address, Byte value)
         std::println("LCDC: {:02X}", value);
         std::println("{}", value & 0x80 ? "LCD is on" : "LCD is off");
     }
-    
+
     if (address < 0x8000)
     {
         std::cerr << std::format("Attempted to write to ROM: {:04X}\n", address);

@@ -1,7 +1,6 @@
 #pragma once
 #include <format>
 #include <fstream>
-#include <map>
 #include <memory>
 
 #include "Bus.hpp"
@@ -11,6 +10,7 @@
 class CPU
 {
     std::ofstream m_Log;
+
 public:
     enum class Register8 : U8
     {
@@ -49,10 +49,11 @@ public:
 
 public:
     CPU(const std::shared_ptr<Bus>& bus, const std::shared_ptr<LCD>& lcd);
+    ~CPU();
 
-    void SavePixels();    
+    void SavePixels();
     void Bootstrap();
-    
+
     U8 Register(Register8 reg);
     U16 Register(Register16 reg);
 
@@ -209,14 +210,41 @@ public:
 #pragma endregion
 
 private:
-    std::map<Register8, U8> m_Registers;
+    std::array<U8, 8> m_Registers;
     std::weak_ptr<Bus> m_Bus;
     std::weak_ptr<LCD> m_LCD;
 
-    std::map<U8, Register8> m_R8;
-    std::map<U8, Register16> m_R16;
-    std::map<U8, Register16> m_R16stk;
-    std::map<U8, Register16> m_R16mem;
+    static constexpr std::array<Register8, 8> R8 = {
+        Register8::B,
+        Register8::C,
+        Register8::D,
+        Register8::E,
+        Register8::H,
+        Register8::L,
+        Register8::HL,
+        Register8::A
+    };
+
+    static constexpr std::array<Register16, 4> R16 = {
+        Register16::BC,
+        Register16::DE,
+        Register16::HL,
+        Register16::SP
+    };
+
+    static constexpr std::array<Register16, 4> R16stk = {
+        Register16::BC,
+        Register16::DE,
+        Register16::HL,
+        Register16::AF
+    };
+
+    static constexpr std::array<Register16, 4> R16mem = {
+        Register16::BC,
+        Register16::DE,
+        Register16::HLi,
+        Register16::HLd
+    };
 
     U16 m_SP;
     U16 m_PC;

@@ -1,5 +1,6 @@
 #include "LCD.hpp"
 
+#include <iostream>
 #include <print>
 
 std::string vs = R"(
@@ -188,7 +189,7 @@ void LCD::Render()
         {
             std::println("Window closed");
             this->~LCD();
-            system("pause");
+            std::cin.get();
             exit(1);
         }
 
