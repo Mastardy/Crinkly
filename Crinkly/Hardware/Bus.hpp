@@ -16,7 +16,7 @@ private:
     static constexpr Size WORK_RAM_SIZE = 8_Kb;
 
 public:
-    Bus();
+    Bus(const std::shared_ptr<Timer>& timer);
 
     void InsertCartridge(const std::string& cartridge);
     std::string CartridgeName() const { return m_CartridgeName; }
@@ -25,7 +25,7 @@ public:
     std::vector<Byte> Read(Address start, Size length);
 
     void Write(Address, Byte);
-
+    
     std::shared_ptr<Cartridge> m_Cartridge;
 
 private:

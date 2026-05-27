@@ -5,8 +5,8 @@
 GameBoyConsole::GameBoyConsole()
 {
     m_Timer = std::make_shared<Timer>();
-    m_Bus = std::make_shared<Bus>();
-    
+    m_Bus = std::make_shared<Bus>(m_Timer);
+
     m_LCD = std::make_shared<LCD>(m_Bus);
     m_CPU = std::make_shared<CPU>(m_Bus, m_LCD);
 }
@@ -16,11 +16,12 @@ GameBoyConsole::~GameBoyConsole()
     EjectCartridge();
 }
 
-void GameBoyConsole::InsertCartridge(const std::string& cartridge) const
+void GameBoyConsole::InsertCartridge(const std::string& cartridge)
 {
     m_Bus->InsertCartridge(cartridge);
     m_CPU->Bootstrap();
-    m_CPU->Step(m_Bus->m_Cartridge->m_ROM.size() < 0x014F ? 0 : 0x100);
+    m_CPU->SetPC(m_Bus->m_Cartridge->m_ROM.size() < 0x014F ? 0 : 0x100);
+    this->Run();
 }
 
 void GameBoyConsole::EjectCartridge()
@@ -30,5 +31,10 @@ void GameBoyConsole::EjectCartridge()
 
 void GameBoyConsole::Run()
 {
-    
+    while (m_Running)
+    {
+        auto tCycles = m_CPU->Step();
+        m_Timer->Tick(tCycles);
+        
+    }
 }

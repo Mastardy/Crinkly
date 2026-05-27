@@ -29,12 +29,14 @@ public:
     GameBoyConsole(GameBoyConsole&&) = delete;
     GameBoyConsole& operator=(GameBoyConsole&&) = delete;
 
-    void InsertCartridge(const std::string& cartridge) const;
+    void InsertCartridge(const std::string& cartridge);
     void EjectCartridge();
 
     void Run();
 
 private:
+    bool m_Running = true;
+
     std::shared_ptr<Bus> m_Bus;
     std::shared_ptr<CPU> m_CPU;
     std::shared_ptr<LCD> m_LCD;

@@ -68,15 +68,15 @@ public:
 
     void Push(U8 value);
     void Push(U16 value);
-    void Push(Register16 reg);
+    U8 Push(Register16 reg);
     U8 Pop();
     U16 Pop16();
-    void Pop(Register16 reg);
+    U8 Pop(Register16 reg);
 
     bool Condition(U8 condition);
 
-    void Step();
-    void Step(U16 address);
+    U8 Step();
+    void SetPC(U16 address);
 
     template <class... Types>
     static void PrintInstruction(const std::format_string<Types...>& text, Types&&... args);
@@ -134,78 +134,78 @@ public:
 
 #pragma region Instructions
     // 16-bit Load Instructions
-    void LoadFromStackPointer();
-    void LoadImm16ToR16(Register16 reg);
-    void LoadAccumulatorToR16Address(Register16 reg);
-    void LoadR16AddressToAccumulator(Register16 reg);
-    void LoadSPOffsetToHL();
-    void LoadHLToSP();
+    U8 LoadFromStackPointer();
+    U8 LoadImm16ToR16(Register16 reg);
+    U8 LoadAccumulatorToR16Address(Register16 reg);
+    U8 LoadR16AddressToAccumulator(Register16 reg);
+    U8 LoadSPOffsetToHL();
+    U8 LoadHLToSP();
 
     // 8-bit Load Instructions
-    void LoadImm8ToR8(Register8 reg);
-    void LoadR8ToR8(Register8 left, Register8 right);
-    void LoadHighToAccumulator(Register8 reg);
-    void LoadHighFromAccumulator(Register8 reg);
+    U8 LoadImm8ToR8(Register8 reg);
+    U8 LoadR8ToR8(Register8 left, Register8 right);
+    U8 LoadHighToAccumulator(Register8 reg);
+    U8 LoadHighFromAccumulator(Register8 reg);
 
     // 8-bit Arithmetic and Logical Instructions
-    void Add(Register8 reg);
-    void Adc(Register8 reg);
-    void Sub(Register8 reg);
-    void Sbc(Register8 reg);
-    void And(Register8 reg);
-    void Xor(Register8 reg);
-    void Or(Register8 reg);
-    void Cp(Register8 reg);
-    void Increment(Register8 reg);
-    void Decrement(Register8 reg);
-    void DecimalAdjustAccumulator();
-    void ComplementAccumulator();
-    void SetCarryFlag();
-    void ComplementCarryFlag();
+    U8 Add(Register8 reg);
+    U8 Adc(Register8 reg);
+    U8 Sub(Register8 reg);
+    U8 Sbc(Register8 reg);
+    U8 And(Register8 reg);
+    U8 Xor(Register8 reg);
+    U8 Or(Register8 reg);
+    U8 Cp(Register8 reg);
+    U8 Increment(Register8 reg);
+    U8 Decrement(Register8 reg);
+    U8 DecimalAdjustAccumulator();
+    U8 ComplementAccumulator();
+    U8 SetCarryFlag();
+    U8 ComplementCarryFlag();
 
     // 16-bit Arithmetic
-    void Add(Register16 reg);
-    void AddSP();
-    void Increment(Register16 reg);
-    void Decrement(Register16 reg);
+    U8 Add(Register16 reg);
+    U8 AddSP();
+    U8 Increment(Register16 reg);
+    U8 Decrement(Register16 reg);
 
     // Rotate, Shift and Bit Instructions
-    void RotateLeftCarryAccumulator();
-    void RotateRightCarryAccumulator();
-    void RotateLeftAccumulator();
-    void RotateRightAccumulator();
+    U8 RotateLeftCarryAccumulator();
+    U8 RotateRightCarryAccumulator();
+    U8 RotateLeftAccumulator();
+    U8 RotateRightAccumulator();
 
-    void RotateLeftCarry(Register8 reg);
-    void RotateRightCarry(Register8 reg);
-    void RotateLeft(Register8 reg);
-    void RotateRight(Register8 reg);
+    U8 RotateLeftCarry(Register8 reg);
+    U8 RotateRightCarry(Register8 reg);
+    U8 RotateLeft(Register8 reg);
+    U8 RotateRight(Register8 reg);
 
-    void ShiftLeft(Register8 reg);
-    void ShiftRight(Register8 reg);
-    void ShiftRightLogically(Register8 reg);
+    U8 ShiftLeft(Register8 reg);
+    U8 ShiftRight(Register8 reg);
+    U8 ShiftRightLogically(Register8 reg);
 
-    void Swap(Register8);
+    U8 Swap(Register8);
 
-    void Bit(U8 bitIndex, Register8 reg);
-    void Reset(U8 bitIndex, Register8 reg);
-    void Set(U8 bitIndex, Register8 reg);
+    U8 Bit(U8 bitIndex, Register8 reg);
+    U8 Reset(U8 bitIndex, Register8 reg);
+    U8 Set(U8 bitIndex, Register8 reg);
 
     // Control Flow Instructions
-    void Call();
-    void CallConditional(U8 cond);
-    void Jump(Register16 reg);
-    void JumpConditional(U8 cond);
-    void JumpRelative();
-    void JumpRelativeConditional(U8 cond);
-    void Return();
-    void ReturnI();
-    void ReturnConditional(U8 cond);
-    void Restart(U8 vec);
+    U8 Call();
+    U8 CallConditional(U8 cond);
+    U8 Jump(Register16 reg);
+    U8 JumpConditional(U8 cond);
+    U8 JumpRelative();
+    U8 JumpRelativeConditional(U8 cond);
+    U8 Return();
+    U8 ReturnI();
+    U8 ReturnConditional(U8 cond);
+    U8 Restart(U8 vec);
 
     // Miscellaneous Instructions
-    void Stop() const;
-    void DisableInterrupts();
-    void EnableInterrupts();
+    U8 Stop() const;
+    U8 DisableInterrupts();
+    U8 EnableInterrupts();
 
 #pragma endregion
 

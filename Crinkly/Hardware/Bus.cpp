@@ -3,7 +3,7 @@
 #include <iostream>
 #include <print>
 
-Bus::Bus()
+Bus::Bus(const std::shared_ptr<Timer>& timer)
 {
     m_CartridgeROM_Bank0.resize(CARTRIDGE_BANK_ROM_SIZE);
     m_CartridgeROM_Bank1.resize(CARTRIDGE_BANK_ROM_SIZE);
@@ -14,6 +14,14 @@ Bus::Bus()
     m_IO_Registers.resize(0x80); // 128 bytes for I/O Registers
     m_HighRAM.resize(0x7F); // 127 bytes for High RAM
     m_InterruptEnable = 0x0; // Interrupts are disabled by default
+
+    m_Timer = timer;
+    timer->SetRequestTimerInterruptCallback([this]()
+    {
+        std::println("Timer Interrupt");
+        this->Write(0xFF0F, this->Read(0xFF0F) | (1 << 2));
+        std::cin.get();
+    });
 }
 
 void Bus::InsertCartridge(const std::string& cartridge)
