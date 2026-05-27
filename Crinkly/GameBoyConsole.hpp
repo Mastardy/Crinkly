@@ -6,7 +6,7 @@
 #include "Hardware/Cartridge.hpp"
 #include "Hardware/CPU.hpp"
 #include "Hardware/LCD.hpp"
-#include "Utility/Utils.hpp"
+#include "Hardware/Timer.hpp"
 #include "Utility/Types.hpp"
 
 class GameBoyConsole
@@ -27,14 +27,19 @@ public:
     GameBoyConsole(const GameBoyConsole&) = delete;
     GameBoyConsole& operator=(const GameBoyConsole&) = delete;
     GameBoyConsole(GameBoyConsole&&) = delete;
-    GameBoyConsole& operator=(GameBoyConsole&&) = delete;    
-    
-    void InsertCartridge(const std::string& cartridge) const;
+    GameBoyConsole& operator=(GameBoyConsole&&) = delete;
+
+    void InsertCartridge(const std::string& cartridge);
     void EjectCartridge();
 
+    void Run();
+
 private:
+    bool m_Running = true;
+
     std::shared_ptr<Bus> m_Bus;
     std::shared_ptr<CPU> m_CPU;
     std::shared_ptr<LCD> m_LCD;
+    std::shared_ptr<Timer> m_Timer;
     std::shared_ptr<Cartridge> m_Cartridge;
 };
