@@ -18,9 +18,7 @@ Bus::Bus(const std::shared_ptr<Timer>& timer)
     m_Timer = timer;
     timer->SetRequestTimerInterruptCallback([this]()
     {
-        std::println("Timer Interrupt");
         this->Write(0xFF0F, this->Read(0xFF0F) | (1 << 2));
-        std::cin.get();
     });
 }
 
@@ -75,7 +73,7 @@ void Bus::Write(Address address, Byte value)
 
     if (address < 0x8000)
     {
-        std::cerr << std::format("Attempted to write to ROM: {:04X}\n", address);
+        // MBC register writes (bank switching etc.) — not yet implemented
     }
     else if (address < 0xA000) m_VideoRAM[address - 0x8000] = value;
     else if (address < 0xC000) m_CartridgeRAM[address - 0xA000] = value;

@@ -29,6 +29,7 @@ CPU::CPU(const std::shared_ptr<Bus>& bus, const std::shared_ptr<LCD>& lcd)
     m_IME = false;
     m_IME_Next_Cycle = false;
     m_Interrupting = false;
+    m_Halted = false;
     m_Wait = 0;
 
     m_Log.open(std::format("{}.log", bus->CartridgeName()));
@@ -594,7 +595,17 @@ U8 CPU::Step()
                     bus->Write(0xFF0F, bus->Read(0xFF0F) & ~0x10);
                     m_PC = 0x0060;
                 }
+                m_Halted = false;
+                return 20;
             }
+        }
+
+        if (m_Halted)
+        {
+            const auto pending = bus->Read(0xFF0F) & bus->Read(0xFFFF);
+            if (pending == 0)
+                return 4;
+            m_Halted = false; // IME=false HALT bug: exit halt, execute instruction after HALT
         }
 
         /*
@@ -741,7 +752,7 @@ U8 CPU::Step()
             {
                 if (params == 0x36)
                 {
-                    std::print("halt\n");
+                    m_Halted = true;
                     return 4;
                 }
                 else
@@ -1705,7 +1716,6 @@ U8 CPU::Restart(U8 vec)
 U8 CPU::Stop() const
 {
     PrintInstruction("Stop");
-    std::cin.get();
 
     return 4;
 }

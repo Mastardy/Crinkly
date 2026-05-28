@@ -102,6 +102,7 @@
     <ClCompile Include="Hardware\Cartridge.cpp" />
     <ClCompile Include="Hardware\CPU.cpp" />
     <ClCompile Include="Hardware\LCD.cpp" />
+    <ClCompile Include="Hardware\PPU.cpp" />
     <ClCompile Include="Hardware\Timer.cpp" />
     <ClCompile Include="ThirdParty\glad.c" />
     <ClCompile Include="Utility\Utils.cpp" />
@@ -112,6 +113,7 @@
     <ClInclude Include="Hardware\Cartridge.hpp" />
     <ClInclude Include="Hardware\CPU.hpp" />
     <ClInclude Include="Hardware\LCD.hpp" />
+    <ClInclude Include="Hardware\PPU.h" />
     <ClInclude Include="Hardware\Timer.hpp" />
     <ClInclude Include="Utility\Types.hpp" />
     <ClInclude Include="Utility\Utils.hpp" />

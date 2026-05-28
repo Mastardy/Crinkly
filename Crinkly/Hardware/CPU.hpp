@@ -251,5 +251,6 @@ private:
     bool m_IME;
     bool m_IME_Next_Cycle;
     bool m_Interrupting;
+    bool m_Halted;
     U8 m_Wait;
 };

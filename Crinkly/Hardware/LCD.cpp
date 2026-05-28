@@ -189,7 +189,6 @@ void LCD::Render()
         {
             std::println("Window closed");
             this->~LCD();
-            std::cin.get();
             exit(1);
         }
 
