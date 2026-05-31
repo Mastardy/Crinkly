@@ -48,7 +48,7 @@ public:
     };
 
 public:
-    CPU(const std::shared_ptr<Bus>& bus, const std::shared_ptr<LCD>& lcd);
+    CPU(const std::shared_ptr<Bus>& bus);
     ~CPU();
 
     void SavePixels();
@@ -212,7 +212,6 @@ public:
 private:
     std::array<U8, 8> m_Registers;
     std::weak_ptr<Bus> m_Bus;
-    std::weak_ptr<LCD> m_LCD;
 
     static constexpr std::array<Register8, 8> R8 = {
         Register8::B,

@@ -40,9 +40,9 @@ Byte Bus::Read(Address address)
     else if (address < 0xC000) return m_CartridgeRAM[address - 0xA000];
     else if (address < 0xE000) return m_WorkRAM[address - 0xC000];
     else if (address >= 0xFE00 && address < 0xFEA0) return m_OAM[address - 0xFE00];
-    else if (address < 0xFEFF)
+    else if (address < 0xFF00)
     {
-        std::cerr << std::format("Attempted to read prohibited memory address: {:04X}\n", address);
+        // 0xFEA0–0xFEFF: unusable region. Reads return 0xFF on DMG hardware.
         return 0xFF;
     }
     else if (address >= 0xFF04 && address < 0xFF08) return m_Timer->Read(address);
@@ -71,6 +71,7 @@ void Bus::Write(Address address, Byte value)
         std::println("{}", value & 0x80 ? "LCD is on" : "LCD is off");
     }
 
+    // Generic
     if (address < 0x8000)
     {
         // MBC register writes (bank switching etc.) — not yet implemented
@@ -82,7 +83,8 @@ void Bus::Write(Address address, Byte value)
     else if (address >= 0xFF04 && address < 0xFF08) m_Timer->Write(address, value);
     else if (address < 0xFF00)
     {
-        std::cerr << std::format("Attempted to write to prohibited memory address: {:04X}\n", address);
+        // 0xFEA0–0xFEFF: unusable region. Writes are ignored on DMG hardware.
+        // Games (e.g. Tetris) routinely overrun bulk clears into here — silently drop.
     }
     else if (address < 0xFF80) m_IO_Registers[address - 0xFF00] = value;
     else if (address < 0xFFFF) m_HighRAM[address - 0xFF80] = value;

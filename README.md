@@ -6,12 +6,12 @@ Crinkly aims to be a clean, readable reference implementation of the original 19
 
 ## Features
 
-- Sharp LR35902 (modified Z80) CPU core
-- Memory bus and cartridge loading
+- Sharp LR35902 (modified Z80) CPU core — passes Blargg's `cpu_instrs`
+- Memory bus and cartridge header parsing
 - Hardware timers and interrupts
-- PPU with background, window, and OAM (sprite) rendering
-- Tile map and tile data viewers
-- OpenGL 3.3 rendering via GLAD + GLFW
+- Background, window, and sprite (OAM) rendering — rudimentary, drawn directly from VRAM by the LCD frontend (a cycle-accurate PPU is still in progress)
+- VRAM tile-data debug viewer
+- OpenGL 4.6 rendering via GLAD + GLFW
 - Native resolution: 160 × 144 @ 4.194304 MHz
 
 ## Project Structure
@@ -54,7 +54,7 @@ Crinkly.exe Roms/cpu_instrs.gb
 
 ## Status
 
-Crinkly is a work in progress. The CPU passes Blargg's `cpu_instrs` test ROM and the PPU renders background, window, and basic OAM. Audio (APU), MBC mappers beyond the basics, and serial link are not yet implemented.
+Crinkly is a work in progress. The CPU passes Blargg's `cpu_instrs` test ROM, and graphics are drawn directly from VRAM by the LCD frontend (background, window, and basic sprites). A cycle-accurate PPU, MBC bank switching (only ROM banks 0 and 1 are currently mapped), audio (APU), and the serial link are not yet implemented.
 
 ## License
 

@@ -6,9 +6,10 @@ GameBoyConsole::GameBoyConsole()
 {
     m_Timer = std::make_shared<Timer>();
     m_Bus = std::make_shared<Bus>(m_Timer);
+    m_CPU = std::make_shared<CPU>(m_Bus);
 
     m_LCD = std::make_shared<LCD>(m_Bus);
-    m_CPU = std::make_shared<CPU>(m_Bus, m_LCD);
+    m_PPU = std::make_shared<PPU>(m_Bus, m_LCD);
 }
 
 GameBoyConsole::~GameBoyConsole()
@@ -35,6 +36,6 @@ void GameBoyConsole::Run()
     {
         auto tCycles = m_CPU->Step();
         m_Timer->Tick(tCycles);
-        
+        m_PPU->Step(tCycles);
     }
 }

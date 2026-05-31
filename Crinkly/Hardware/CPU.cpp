@@ -7,10 +7,7 @@
 
 // #define PRINT_INSTRUCTION
 
-static int gpuCounter = 0;
-static int frame = 0;
-
-CPU::CPU(const std::shared_ptr<Bus>& bus, const std::shared_ptr<LCD>& lcd)
+CPU::CPU(const std::shared_ptr<Bus>& bus)
 {
     m_Registers[std::to_underlying(Register8::A)] = 0;
     m_Registers[std::to_underlying(Register8::B)] = 0;
@@ -22,7 +19,6 @@ CPU::CPU(const std::shared_ptr<Bus>& bus, const std::shared_ptr<LCD>& lcd)
     m_Registers[std::to_underlying(Register8::L)] = 0;
 
     m_Bus = bus;
-    m_LCD = lcd;
 
     m_SP = 0x0000;
     m_PC = 0x0000;
@@ -534,25 +530,6 @@ U8 CPU::Step()
     if (auto bus = m_Bus.lock())
     {
         bus->Write(0xFF00, 0xFF); // Joypad Input
-
-        bus->Write(0xFF44, static_cast<U8>(gpuCounter / 456));
-
-        if (bus->Read(0xFF44) == bus->Read(0xFF45))
-        {
-            bus->Write(0xFF41, bus->Read(0xFF41) | 0x04);
-        }
-
-        bus->Write(0xFF47, 0xE4);
-
-        if (++gpuCounter > 70224)
-        {
-            if (auto lcd = m_LCD.lock())
-            {
-                lcd->Render();
-            }
-            gpuCounter = 0;
-            frame++;
-        }
 
         if (m_IME_Next_Cycle)
         {

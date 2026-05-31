@@ -6,6 +6,7 @@
 #include "Hardware/Cartridge.hpp"
 #include "Hardware/CPU.hpp"
 #include "Hardware/LCD.hpp"
+#include "Hardware/PPU.h"
 #include "Hardware/Timer.hpp"
 #include "Utility/Types.hpp"
 
@@ -40,6 +41,7 @@ private:
     std::shared_ptr<Bus> m_Bus;
     std::shared_ptr<CPU> m_CPU;
     std::shared_ptr<LCD> m_LCD;
+    std::shared_ptr<PPU> m_PPU;
     std::shared_ptr<Timer> m_Timer;
     std::shared_ptr<Cartridge> m_Cartridge;
 };
