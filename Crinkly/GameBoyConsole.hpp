@@ -5,8 +5,9 @@
 #include "Hardware/Bus.hpp"
 #include "Hardware/Cartridge.hpp"
 #include "Hardware/CPU.hpp"
+#include "Hardware/Joypad.hpp"
 #include "Hardware/LCD.hpp"
-#include "Hardware/PPU.h"
+#include "Hardware/PPU.hpp"
 #include "Hardware/Timer.hpp"
 #include "Utility/Types.hpp"
 
@@ -43,5 +44,6 @@ private:
     std::shared_ptr<LCD> m_LCD;
     std::shared_ptr<PPU> m_PPU;
     std::shared_ptr<Timer> m_Timer;
+    std::shared_ptr<Joypad> m_Joypad;
     std::shared_ptr<Cartridge> m_Cartridge;
 };

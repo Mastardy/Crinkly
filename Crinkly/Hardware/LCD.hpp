@@ -4,21 +4,27 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include <array>
+
 #include "Bus.hpp"
+#include "Joypad.hpp"
 
 class LCD
 {
 public:
-    LCD(const std::shared_ptr<Bus>& bus);
+    LCD(const std::shared_ptr<Bus>& bus, const std::shared_ptr<Joypad>& joypad);
     ~LCD();
 
-    void Render();
+    void Present(const std::array<U8, 69120>& frame);
 
 private:
+    void PollJoypad();
+
     GLFWwindow* m_Window;
     GLFWwindow* m_WindowDebug;
 
     std::weak_ptr<Bus> m_Bus;
+    std::weak_ptr<Joypad> m_Joypad;
 
     unsigned int m_VAO = 0;
     unsigned int m_VBO = 0;

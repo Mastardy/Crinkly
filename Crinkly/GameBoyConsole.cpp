@@ -5,10 +5,11 @@
 GameBoyConsole::GameBoyConsole()
 {
     m_Timer = std::make_shared<Timer>();
-    m_Bus = std::make_shared<Bus>(m_Timer);
+    m_Joypad = std::make_shared<Joypad>();
+    m_Bus = std::make_shared<Bus>(m_Timer, m_Joypad);
     m_CPU = std::make_shared<CPU>(m_Bus);
 
-    m_LCD = std::make_shared<LCD>(m_Bus);
+    m_LCD = std::make_shared<LCD>(m_Bus, m_Joypad);
     m_PPU = std::make_shared<PPU>(m_Bus, m_LCD);
 }
 

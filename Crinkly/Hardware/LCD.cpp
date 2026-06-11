@@ -1,6 +1,5 @@
 #include "LCD.hpp"
 
-#include <iostream>
 #include <print>
 
 std::string vs = R"(
@@ -32,9 +31,10 @@ std::string fs = R"(
     }
 )";
 
-LCD::LCD(const std::shared_ptr<Bus>& bus)
+LCD::LCD(const std::shared_ptr<Bus>& bus, const std::shared_ptr<Joypad>& joypad)
 {
     m_Bus = bus;
+    m_Joypad = joypad;
 
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -181,7 +181,7 @@ LCD::~LCD()
     glfwTerminate();
 }
 
-void LCD::Render()
+void LCD::Present(const std::array<U8, 69120>& frame)
 {
     if (const auto bus = m_Bus.lock())
     {
@@ -194,39 +194,7 @@ void LCD::Render()
 
         glfwMakeContextCurrent(m_Window);
 
-        std::vector<U8> m_ViewBuffer;
-
-        for (S32 ty = 17; ty >= 0; ty--)
-        {
-            for (S32 y = 7; y >= 0; y--)
-            {
-                for (S32 tx = 0; tx < 20; tx++)
-                {
-                    for (S32 x = 0; x < 8; x++)
-                    {
-                        U16 addressOffset = 0x9800 + static_cast<U16>(ty * 32 + tx);
-                        U16 tileIndex = bus->Read(addressOffset);
-                        U16 address = 0x8000 + tileIndex * 16 + static_cast<U16>(y * 2);
-
-                        U8 leftByte = bus->Read(address);
-                        U8 rightByte = bus->Read(address + 1);
-
-                        U8 lsb = (leftByte >> static_cast<U8>(7 - x)) & 0x01;
-                        U8 msb = (rightByte >> static_cast<U8>(7 - x)) & 0x01;
-
-                        U8 pixel = static_cast<U8>(msb << 1) | lsb;
-
-                        U8 color = pixel * 85;
-                        
-                        m_ViewBuffer.push_back(color);
-                        m_ViewBuffer.push_back(color);
-                        m_ViewBuffer.push_back(color);
-                    }
-                }
-            }
-        }
-
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 160, 144, GL_RGB, GL_UNSIGNED_BYTE, m_ViewBuffer.data());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 160, 144, GL_RGB, GL_UNSIGNED_BYTE, frame.data());
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -357,5 +325,24 @@ void LCD::Render()
 
         glfwSwapBuffers(m_WindowDebug);
         glfwPollEvents();
+        PollJoypad();
     }
+}
+
+void LCD::PollJoypad()
+{
+    const auto joypad = m_Joypad.lock();
+    if (!joypad) return;
+
+    auto IsPressed = [this](int k) { return glfwGetKey(m_Window, k) == GLFW_PRESS; };
+
+    joypad->SetDPad(Joypad::Button::Right, IsPressed(GLFW_KEY_RIGHT));
+    joypad->SetDPad(Joypad::Button::Left, IsPressed(GLFW_KEY_LEFT));
+    joypad->SetDPad(Joypad::Button::Up, IsPressed(GLFW_KEY_UP));
+    joypad->SetDPad(Joypad::Button::Down, IsPressed(GLFW_KEY_DOWN));
+
+    joypad->SetButtons(Joypad::Button::A, IsPressed(GLFW_KEY_Z));
+    joypad->SetButtons(Joypad::Button::B, IsPressed(GLFW_KEY_X));
+    joypad->SetButtons(Joypad::Button::Select, IsPressed(GLFW_KEY_RIGHT_SHIFT));
+    joypad->SetButtons(Joypad::Button::Start, IsPressed(GLFW_KEY_ENTER));
 }

@@ -529,8 +529,6 @@ U8 CPU::Step()
 {
     if (auto bus = m_Bus.lock())
     {
-        bus->Write(0xFF00, 0xFF); // Joypad Input
-
         if (m_IME_Next_Cycle)
         {
             m_IME = true;
@@ -544,30 +542,31 @@ U8 CPU::Step()
             {
                 m_IME = false;
                 m_IME_Next_Cycle = false;
+                
                 m_Interrupting = true;
 
                 Push(m_PC);
-                if (interrupt & 0x01)
+                if (interrupt & 0x01) // VBlank
                 {
                     bus->Write(0xFF0F, bus->Read(0xFF0F) & ~0x01);
                     m_PC = 0x0040;
                 }
-                else if (interrupt & 0x02)
+                else if (interrupt & 0x02) // STAT 
                 {
                     bus->Write(0xFF0F, bus->Read(0xFF0F) & ~0x02);
                     m_PC = 0x0048;
                 }
-                else if (interrupt & 0x04)
+                else if (interrupt & 0x04) // Timer
                 {
                     bus->Write(0xFF0F, bus->Read(0xFF0F) & ~0x04);
                     m_PC = 0x0050;
                 }
-                else if (interrupt & 0x08)
+                else if (interrupt & 0x08) // Serial
                 {
                     bus->Write(0xFF0F, bus->Read(0xFF0F) & ~0x08);
                     m_PC = 0x0058;
                 }
-                else if (interrupt & 0x10)
+                else if (interrupt & 0x10) // Joypad
                 {
                     bus->Write(0xFF0F, bus->Read(0xFF0F) & ~0x10);
                     m_PC = 0x0060;
@@ -1472,7 +1471,7 @@ U8 CPU::RotateLeft(Register8 reg)
     PrintInstruction("rl r8");
 
     const bool carry = Register(reg) & 0x80;
-    const U8 result = static_cast<U8>(Register(reg) << 1) | Flag(Flags::C);
+    const U8 result = static_cast<U8>(Register(reg) << 1) | static_cast<U8>(Flag(Flags::C));
     Register(reg, result);
 
     Flag(Flags::Z, result == 0x00);

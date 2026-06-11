@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "Cartridge.hpp"
+#include "Joypad.hpp"
 #include "Utility/Types.hpp"
 #include "Utility/Utils.hpp"
 #include "Hardware/Timer.hpp"
@@ -16,7 +17,7 @@ private:
     static constexpr Size WORK_RAM_SIZE = 8_Kb;
 
 public:
-    Bus(const std::shared_ptr<Timer>& timer);
+    Bus(const std::shared_ptr<Timer>& timer, const std::shared_ptr<Joypad>& joypad);
 
     void InsertCartridge(const std::string& cartridge);
     std::string CartridgeName() const { return m_CartridgeName; }
@@ -25,7 +26,7 @@ public:
     std::vector<Byte> Read(Address start, Size length);
 
     void Write(Address, Byte);
-    
+
     std::shared_ptr<Cartridge> m_Cartridge;
 
 private:
@@ -38,7 +39,9 @@ private:
     std::vector<Byte> m_IO_Registers;
     std::vector<Byte> m_HighRAM;
 
-    std::shared_ptr<Timer> m_Timer;
+    std::weak_ptr<Timer> m_Timer;
+    std::weak_ptr<Joypad> m_Joypad;
+
     Byte m_InterruptEnable;
     std::string m_CartridgeName;
 };
