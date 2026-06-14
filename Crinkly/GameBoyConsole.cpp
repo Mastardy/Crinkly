@@ -22,7 +22,7 @@ void GameBoyConsole::InsertCartridge(const std::string& cartridge)
 {
     m_Bus->InsertCartridge(cartridge);
     m_CPU->Bootstrap();
-    m_CPU->SetPC(m_Bus->m_Cartridge->m_ROM.size() < 0x014F ? 0 : 0x100);
+    m_CPU->SetPC(0x100);
     this->Run();
 }
 

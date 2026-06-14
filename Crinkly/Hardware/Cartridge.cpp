@@ -17,14 +17,24 @@ Cartridge::Cartridge(const std::string& file)
         exit(127);
     }
 
-    int byteCounter = 0;
-    while (!input.eof())
-    {
-        Byte byte;
-        input.read(reinterpret_cast<char*>(&byte), sizeof(Byte));
-        m_ROM.emplace_back(byte);
+    m_ROMBankCount = 0;
+    m_ROMBank = 1;
+    m_RAMBank = 0;
+    m_BankingMode = 0;
+    m_RAMEnabled = false;
 
-        byteCounter++;
+    while (input.peek() != std::ifstream::traits_type::eof())
+    {
+        m_ROM.push_back({});
+        input.read(reinterpret_cast<char*>(m_ROM.back().data()), static_cast<std::streamsize>(m_ROM.back().size()));
+        m_ROMBankCount++;
+    }
+
+    if (m_ROM.empty())
+    {
+        std::cerr << "ROM file is empty: " << file << '\n';
+        std::cin.get();
+        exit(127);
     }
 
     input.close();
@@ -36,20 +46,41 @@ void Cartridge::LoadROM()
 {
     VerifyNintendoLogo();
 
-    if (m_ROM.size() < 0x014F)
+    if (m_ROM[0].size() < 0x014F)
     {
         std::cerr << "ROM is too small to contain a header!\n";
         return;
     }
-    
-    for (auto i = 0x134; i <= 0x142; i++)
+
+    for (U16 i = 0x134; i <= 0x142; i++)
     {
-        m_Title += m_ROM[i];
+        m_Title += static_cast<char>(m_ROM[0][i]);
     }
 
-    m_CartridgeType = static_cast<CartridgeType>(m_ROM[0x147]);
+    m_CartridgeType = static_cast<CartridgeType>(m_ROM[0][0x147]);
 
-    m_ROMSize = static_cast<ROMSize>(m_ROM[0x148]);
+    switch (m_CartridgeType)
+    {
+    case CartridgeType::ROM_ONLY:
+    case CartridgeType::ROM_RAM:
+    case CartridgeType::ROM_RAM_BATTERY:
+    case CartridgeType::MBC1:
+    case CartridgeType::MBC1_RAM:
+    case CartridgeType::MBC1_RAM_BATTERY:
+    case CartridgeType::MBC5:
+    case CartridgeType::MBC5_RAM:
+    case CartridgeType::MBC5_RAM_BATTERY:
+    case CartridgeType::MBC5_RUMBLE:
+    case CartridgeType::MBC5_RUMBLE_RAM:
+    case CartridgeType::MBC5_RUMBLE_RAM_BATTERY:
+        break;
+    default:
+        std::cerr << std::format("Unsupported cartridge type: {} ({:#04x})\n",
+                                 GetCartridgeTypeLiteral(), m_ROM[0][0x147]);
+        exit(1);
+    }
+
+    m_ROMSize = static_cast<ROMSize>(m_ROM[0][0x148]);
 
     if (m_CartridgeType == CartridgeType::MBC1_RAM || m_CartridgeType == CartridgeType::MBC1_RAM_BATTERY ||
         m_CartridgeType == CartridgeType::ROM_RAM || m_CartridgeType == CartridgeType::ROM_RAM_BATTERY ||
@@ -60,74 +91,165 @@ void Cartridge::LoadROM()
         m_CartridgeType == CartridgeType::MBC5_RUMBLE_RAM_BATTERY || m_CartridgeType == CartridgeType::MBC5_RAM ||
         m_CartridgeType == CartridgeType::MBC7_SENSOR_RUMBLE_RAM_BATTERY)
     {
-        m_RAMSize = RAMSize::None;
+        m_RAMSize = static_cast<RAMSize>(m_ROM[0][0x149]);
     }
     else
     {
-        m_RAMSize = static_cast<RAMSize>(m_ROM[0x149]);
+        m_RAMSize = RAMSize::None;
     }
 
-    m_DestinationCode = static_cast<DestinationCode>(m_ROM[0x14A]);
+    switch (m_RAMSize)
+    {
+    case RAMSize::_8KB:
+        m_RAM.resize(1);
+        break;
+    case RAMSize::_32KB:
+        m_RAM.resize(4);
+        break;
+    case RAMSize::_64KB:
+        m_RAM.resize(8);
+        break;
+    case RAMSize::_128KB:
+        m_RAM.resize(16);
+        break;
+    default:
+        break;
+    }
 
-    m_OldLicenseeCode = m_ROM[0x14B];
+    m_DestinationCode = static_cast<DestinationCode>(m_ROM[0][0x14A]);
+
+    m_OldLicenseeCode = m_ROM[0][0x14B];
     if (m_OldLicenseeCode == 0x33)
     {
-        m_NewLicenseeCode = static_cast<Word>(m_ROM[0x144] << 8) | m_ROM[0x145];
+        m_NewLicenseeCode = static_cast<Word>(m_ROM[0][0x144] << 8) | m_ROM[0][0x145];
     }
 
-    m_MaskROMVersionNumber = m_ROM[0x14C];
+    m_MaskROMVersionNumber = m_ROM[0][0x14C];
 
     U8 calculatedChecksum = 0;
     for (U16 address = 0x0134; address <= 0x014C; address++)
     {
-        calculatedChecksum = calculatedChecksum - m_ROM[address] - 1;
+        calculatedChecksum = calculatedChecksum - m_ROM[0][address] - 1;
     }
 
-    if (calculatedChecksum != m_ROM[0x14D])
+    if (calculatedChecksum != m_ROM[0][0x14D])
     {
         std::println("\n\nHeader Checksum is incorrect!");
         exit(1);
     }
 }
 
+bool Cartridge::HasMBC1() const
+{
+    return m_CartridgeType == CartridgeType::MBC1 ||
+        m_CartridgeType == CartridgeType::MBC1_RAM ||
+        m_CartridgeType == CartridgeType::MBC1_RAM_BATTERY;
+}
+
+bool Cartridge::HasMBC5() const
+{
+    return m_CartridgeType == CartridgeType::MBC5 ||
+        m_CartridgeType == CartridgeType::MBC5_RAM ||
+        m_CartridgeType == CartridgeType::MBC5_RAM_BATTERY ||
+        m_CartridgeType == CartridgeType::MBC5_RUMBLE ||
+        m_CartridgeType == CartridgeType::MBC5_RUMBLE_RAM ||
+        m_CartridgeType == CartridgeType::MBC5_RUMBLE_RAM_BATTERY;
+}
+
+bool Cartridge::HasRumble() const
+{
+    return m_CartridgeType == CartridgeType::MBC5_RUMBLE ||
+        m_CartridgeType == CartridgeType::MBC5_RUMBLE_RAM ||
+        m_CartridgeType == CartridgeType::MBC5_RUMBLE_RAM_BATTERY;
+}
+
+U8 Cartridge::CurrentRAMBank() const
+{
+    if (m_RAM.empty()) return 0;
+    if (HasMBC5())
+    {
+        U8 bank = HasRumble() ? m_RAMBank & 0x07 : m_RAMBank;
+        return bank % static_cast<U8>(m_RAM.size());
+    }
+    if (!HasMBC1() || m_BankingMode == 0) return 0;
+    return m_RAMBank % static_cast<U8>(m_RAM.size());
+}
+
+Byte Cartridge::Read(Address address)
+{
+    if (address < 0x4000)
+    {
+        U8 bank = 0;
+        if (HasMBC1() && m_BankingMode == 1) bank = static_cast<U8>(m_RAMBank << 5) % m_ROMBankCount;
+        return m_ROM[bank][address];
+    }
+    else if (address < 0x8000)
+    {
+        U16 bank = 1;
+        if (HasMBC1())
+        {
+            U8 low = m_ROMBank == 0 ? 1 : static_cast<U8>(m_ROMBank);
+            bank = static_cast<U8>((m_RAMBank << 5) | low);
+        }
+        else if (HasMBC5())
+        {
+            bank = m_ROMBank;
+        }
+        return m_ROM[bank % m_ROMBankCount][address - 0x4000];
+    }
+    else
+    {
+        if (m_RAM.empty() || ((HasMBC1() || HasMBC5()) && !m_RAMEnabled)) return 0xFF;
+        return m_RAM[CurrentRAMBank()][address - 0xA000];
+    }
+}
+
+void Cartridge::Write(Address address, Byte value)
+{
+    if (HasMBC1())
+    {
+        if (address < 0x2000) m_RAMEnabled = (value & 0x0F) == 0xA;
+        else if (address < 0x4000) m_ROMBank = value & 0x1F;
+        else if (address < 0x6000) m_RAMBank = value & 0x03;
+        else if (address < 0x8000) m_BankingMode = value & 0x01;
+        else if (address >= 0xA000 && address < 0xC000 && m_RAMEnabled && !m_RAM.empty())
+        {
+            m_RAM[CurrentRAMBank()][address - 0xA000] = value;
+        }
+    }
+    else if (HasMBC5())
+    {
+        if (address < 0x2000) m_RAMEnabled = value == 0x0A;
+        else if (address < 0x3000) m_ROMBank = (m_ROMBank & 0x100) | value;
+        else if (address < 0x4000) m_ROMBank = static_cast<U16>((value & 0x01) << 8) | (m_ROMBank & 0xFF);
+        else if (address < 0x6000) m_RAMBank = value & 0x0F;
+        else if (address >= 0xA000 && address < 0xC000 && m_RAMEnabled && !m_RAM.empty())
+        {
+            m_RAM[CurrentRAMBank()][address - 0xA000] = value;
+        }
+    }
+    else if (address >= 0xA000 && address < 0xC000 && !m_RAM.empty())
+    {
+        m_RAM[0][address - 0xA000] = value;
+    }
+}
+
 void Cartridge::VerifyNintendoLogo()
 {
-    if (m_ROM.size() < 0x014F)
+    if (m_ROM[0].size() < 0x014F)
     {
         std::cerr << "ROM is too small to contain a header!\n";
         return;
     }
-    
+
     for (auto i = 0x0104; i <= 0x0133; i++)
     {
-        if (m_ROM[i] == k_NintendoLogo[i - 0x0104]) continue;
-        std::cerr << std::format("Rom Nintendo Logo does not match!\n{:#06x}\t{:#06x} != {:#06x}\nBlocking Execution...\n",
-            i, m_ROM[i], k_NintendoLogo[i - 0x0104]);
+        if (m_ROM[0][i] == k_NintendoLogo[i - 0x0104]) continue;
+        std::cerr << std::format(
+            "Rom Nintendo Logo does not match!\n{:#06x}\t{:#06x} != {:#06x}\nBlocking Execution...\n",
+            i, m_ROM[0][i], k_NintendoLogo[i - 0x0104]);
         exit(1);
     }
-}
-
-Byte Cartridge::ReadROM(Address address) const
-{
-    return m_ROM[address];
-}
-
-std::vector<Byte> Cartridge::ReadROM(Address start, Size length) const
-{
-    std::vector<Byte> data;
-    for (Size i = start; i < start + length; i++)
-    {
-        if (i < m_ROM.size())
-        {
-            data.push_back(m_ROM[i]);
-        }
-        else
-        {
-            data.push_back(0);
-        }
-    }
-
-    return data;
 }
 
 void Cartridge::PrintHeader() const

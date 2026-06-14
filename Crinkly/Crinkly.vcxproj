@@ -98,6 +98,7 @@
   <ItemGroup>
     <ClCompile Include="Crinkly.cpp" />
     <ClCompile Include="GameBoyConsole.cpp" />
+    <ClCompile Include="Hardware\APU.cpp" />
     <ClCompile Include="Hardware\Bus.cpp" />
     <ClCompile Include="Hardware\Cartridge.cpp" />
     <ClCompile Include="Hardware\CPU.cpp" />
@@ -106,10 +107,12 @@
     <ClCompile Include="Hardware\PPU.cpp" />
     <ClCompile Include="Hardware\Timer.cpp" />
     <ClCompile Include="ThirdParty\glad.c" />
+    <ClCompile Include="ThirdParty\miniaudio.c" />
     <ClCompile Include="Utility\Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameBoyConsole.hpp" />
+    <ClInclude Include="Hardware\APU.hpp" />
     <ClInclude Include="Hardware\Bus.hpp" />
     <ClInclude Include="Hardware\Cartridge.hpp" />
     <ClInclude Include="Hardware\CPU.hpp" />
@@ -117,6 +120,7 @@
     <ClInclude Include="Hardware\LCD.hpp" />
     <ClInclude Include="Hardware\PPU.hpp" />
     <ClInclude Include="Hardware\Timer.hpp" />
+    <ClInclude Include="ThirdParty\miniaudio.h" />
     <ClInclude Include="Utility\Types.hpp" />
     <ClInclude Include="Utility\Utils.hpp" />
   </ItemGroup>

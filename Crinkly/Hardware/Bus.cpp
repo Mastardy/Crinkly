@@ -1,12 +1,9 @@
 #include "Bus.hpp"
 
-#include <iostream>
 #include <print>
 
 Bus::Bus(const std::shared_ptr<Timer>& timer, const std::shared_ptr<Joypad>& joypad)
 {
-    m_CartridgeROM_Bank0.resize(CARTRIDGE_BANK_ROM_SIZE);
-    m_CartridgeROM_Bank1.resize(CARTRIDGE_BANK_ROM_SIZE);
     m_VideoRAM.resize(VIDEO_RAM_SIZE);
     m_CartridgeRAM.resize(CARTRIDGE_RAM_SIZE);
     m_WorkRAM.resize(WORK_RAM_SIZE);
@@ -33,17 +30,13 @@ void Bus::InsertCartridge(const std::string& cartridge)
     m_CartridgeName = SplitString(SplitString(cartridge, "\\").back(), ".")[0];
 
     m_Cartridge = std::make_shared<Cartridge>(cartridge);
-
-    m_CartridgeROM_Bank0 = m_Cartridge->ReadROM(0, CARTRIDGE_BANK_ROM_SIZE);
-    m_CartridgeROM_Bank1 = m_Cartridge->ReadROM(CARTRIDGE_BANK_ROM_SIZE, CARTRIDGE_BANK_ROM_SIZE);
 }
 
 Byte Bus::Read(Address address)
 {
-    if (address < 0x4000) return m_CartridgeROM_Bank0[address];
-    else if (address < 0x8000) return m_CartridgeROM_Bank1[address - 0x4000];
+    if (address < 0x8000) return m_Cartridge->Read(address);
     else if (address < 0xA000) return m_VideoRAM[address - 0x8000];
-    else if (address < 0xC000) return m_CartridgeRAM[address - 0xA000];
+    else if (address < 0xC000) return m_Cartridge->Read(address);
     else if (address < 0xE000) return m_WorkRAM[address - 0xC000];
     else if (address >= 0xFE00 && address < 0xFEA0) return m_OAM[address - 0xFE00];
     else if (address < 0xFF00)
@@ -101,14 +94,14 @@ void Bus::Write(Address address, Byte value)
 
     if (address < 0x8000)
     {
-        // MBC register writes
+        m_Cartridge->Write(address, value);
     }
     else if (address < 0xA000)
     {
         U8 flag = m_IO_Registers[0x41] & 0x03;
         if (flag != 0x03) m_VideoRAM[address - 0x8000] = value;
     }
-    else if (address < 0xC000) m_CartridgeRAM[address - 0xA000] = value;
+    else if (address < 0xC000) m_Cartridge->Write(address, value);
     else if (address < 0xE000) m_WorkRAM[address - 0xC000] = value;
     else if (address >= 0xFE00 && address < 0xFEA0)
     {
@@ -121,7 +114,7 @@ void Bus::Write(Address address, Byte value)
     }
     else if (address == 0xFF00)
     {
-        if (const auto joypad = m_Joypad.lock()) joypad->Write(value);  
+        if (const auto joypad = m_Joypad.lock()) joypad->Write(value);
     }
     else if (address >= 0xFF04 && address < 0xFF08)
     {

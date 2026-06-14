@@ -189,7 +189,7 @@ void PPU::RenderSprites(U8 ly, const std::array<U8, 160>& bg)
         for (U8 x = 0; x < 8; x++)
         {
             S32 sx = static_cast<S32>(sprite.x) - 8 + x;
-            if (sx < 0 || sx > 160) continue;
+            if (sx < 0 || sx >= 160) continue;
 
             U8 col = xFlip ? x : static_cast<U8>(7 - x);
             U8 shadeId = static_cast<U8>((((highByte >> col) & 0x01) << 1) | ((lowByte >> col) & 0x01));

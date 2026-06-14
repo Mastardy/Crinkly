@@ -30,8 +30,6 @@ public:
     std::shared_ptr<Cartridge> m_Cartridge;
 
 private:
-    std::vector<Byte> m_CartridgeROM_Bank0;
-    std::vector<Byte> m_CartridgeROM_Bank1;
     std::vector<Byte> m_VideoRAM;
     std::vector<Byte> m_CartridgeRAM;
     std::vector<Byte> m_WorkRAM;

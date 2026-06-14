@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -39,6 +40,7 @@ private:
         HuC3 = 0xFE,
         HuC1_RAM_BATTERY = 0xFF
     };
+
     enum class ROMSize : Byte
     {
         _32KB = 0x00,
@@ -54,6 +56,7 @@ private:
         _1_2MB = 0x53,
         _1_5MB = 0x54
     };
+
     enum class RAMSize : Byte
     {
         None = 0x00,
@@ -63,22 +66,23 @@ private:
         _128KB = 0x04,
         _64KB = 0x05
     };
+
     enum class DestinationCode : Byte
     {
         Japan = 0x00,
         Overseas = 0x01
     };
-    
+
 public:
     Cartridge(const std::string& file);
 
     void LoadROM();
 
+    Byte Read(Address address);
+    void Write(Address address, Byte value);
+
     void VerifyNintendoLogo();
 
-    Byte ReadROM(Address address) const;
-    std::vector<Byte> ReadROM(Address start, Size length) const;
-    
     std::string GetLicenseeCodeLiteral() const;
     std::string GetCartridgeTypeLiteral() const;
     std::string GetROMSizeLiteral() const;
@@ -86,7 +90,11 @@ public:
     std::string GetDestinationCodeLiteral() const;
 
     void PrintHeader() const;
-    
+
+    bool HasMBC1() const;
+    bool HasMBC5() const;
+    bool HasRumble() const;
+
     Cartridge(const Cartridge&) = delete;
     Cartridge& operator=(const Cartridge&) = delete;
     Cartridge(Cartridge&&) = delete;
@@ -99,10 +107,20 @@ private:
         0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC, 0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E
     };
 
-public:
-    std::vector<Byte> m_ROM;
+private:
+    U8 CurrentRAMBank() const;
 
 private:
+    std::vector<std::array<Byte, 0x4000>> m_ROM;
+    U16 m_ROMBankCount;
+    U16 m_ROMBank;
+
+    std::vector<std::array<Byte, 0x2000>> m_RAM;
+    U8 m_RAMBank;
+
+    U8 m_BankingMode;
+    bool m_RAMEnabled;
+
     std::string m_Title;
     Byte m_OldLicenseeCode;
     Word m_NewLicenseeCode;
