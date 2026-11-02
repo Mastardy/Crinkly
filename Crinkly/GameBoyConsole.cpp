@@ -11,6 +11,7 @@ GameBoyConsole::GameBoyConsole()
 
     m_LCD = std::make_shared<LCD>(m_Bus, m_Joypad);
     m_PPU = std::make_shared<PPU>(m_Bus, m_LCD);
+    m_APU = std::make_shared<APU>();
 }
 
 GameBoyConsole::~GameBoyConsole()
@@ -38,5 +39,6 @@ void GameBoyConsole::Run()
         auto tCycles = m_CPU->Step();
         m_Timer->Tick(tCycles);
         m_PPU->Step(tCycles);
+        m_APU->Step();
     }
 }

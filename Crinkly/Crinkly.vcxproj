@@ -48,13 +48,13 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(SolutionDir)\ThirdParty\GLAD\include;$(SolutionDir)\ThirdParty\GLFW\include</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(SolutionDir)\ThirdParty\GLAD\include;$(SolutionDir)\ThirdParty\GLFW\include;$(SolutionDir)\ThirdParty\miniaudio</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(SolutionDir)\ThirdParty\GLFW\lib</LibraryPath>
     <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(SolutionDir)\ThirdParty\miniaudio</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -106,8 +106,8 @@
     <ClCompile Include="Hardware\LCD.cpp" />
     <ClCompile Include="Hardware\PPU.cpp" />
     <ClCompile Include="Hardware\Timer.cpp" />
-    <ClCompile Include="ThirdParty\glad.c" />
-    <ClCompile Include="ThirdParty\miniaudio.c" />
+    <ClCompile Include="..\ThirdParty\GLAD\src\glad.c" />
+    <ClCompile Include="..\ThirdParty\miniaudio\miniaudio.c" />
     <ClCompile Include="Utility\Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -120,7 +120,7 @@
     <ClInclude Include="Hardware\LCD.hpp" />
     <ClInclude Include="Hardware\PPU.hpp" />
     <ClInclude Include="Hardware\Timer.hpp" />
-    <ClInclude Include="ThirdParty\miniaudio.h" />
+    <ClInclude Include="..\ThirdParty\miniaudio\miniaudio.h" />
     <ClInclude Include="Utility\Types.hpp" />
     <ClInclude Include="Utility\Utils.hpp" />
   </ItemGroup>
