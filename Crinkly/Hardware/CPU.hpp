@@ -1,5 +1,6 @@
 #pragma once
 #include <format>
+#include <functional>
 #include <fstream>
 #include <memory>
 
@@ -76,6 +77,7 @@ public:
     bool Condition(U8 condition);
 
     U8 Step();
+    void SetTickCallback(std::function<void(U8)> callback) { m_Tick = std::move(callback); }
     void SetPC(U16 address);
 
     template <class... Types>
@@ -210,6 +212,13 @@ public:
 #pragma endregion
 
 private:
+    U8 StepInstruction();
+    U8 MemRead(Address address);
+    void MemWrite(Address address, U8 value);
+
+    std::function<void(U8)> m_Tick;
+    U8 m_TickedCycles = 0;
+
     std::array<U8, 8> m_Registers;
     std::weak_ptr<Bus> m_Bus;
 

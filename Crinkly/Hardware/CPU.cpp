@@ -93,7 +93,7 @@ U8 CPU::Register(Register8 reg)
     {
         if (const auto bus = m_Bus.lock())
         {
-            return bus->Read(Register(Register16::HL));
+            return MemRead(Register(Register16::HL));
         }
         return 0;
     }
@@ -148,7 +148,7 @@ void CPU::Register(Register8 reg, const U8 value)
     {
         if (const auto bus = m_Bus.lock())
         {
-            bus->Write(Register(Register16::HL), value);
+            MemWrite(Register(Register16::HL), value);
         }
         return;
     }
@@ -190,7 +190,7 @@ void CPU::Register(Register16 reg, const U16& value)
         if (const auto bus = m_Bus.lock())
         {
             const Address address = ReadImm16();
-            bus->Write(address, static_cast<U8>(value));
+            MemWrite(address, static_cast<U8>(value));
         }
         break;
     }
@@ -234,7 +234,7 @@ U8 CPU::ReadImm8()
 #ifdef PRINT_INSTRUCTION
         std::println("Reading from 0x{:04X} -> {:02X}", m_PC, bus->Read(m_PC));
 #endif
-        return bus->Read(m_PC++);
+        return MemRead(m_PC++);
     }
 
     return 0x00;
@@ -248,8 +248,8 @@ U16 CPU::ReadImm16()
         std::println("Reading from 0x{:04X} -> {:02X}", m_PC, bus->Read(m_PC));
         std::println("Reading from 0x{:04X} -> {:02X}", m_PC + 1, bus->Read(m_PC + 1));
 #endif
-        auto low = bus->Read(m_PC++);
-        auto high = bus->Read(m_PC++);
+        auto low = MemRead(m_PC++);
+        auto high = MemRead(m_PC++);
         return static_cast<U16>(low) | static_cast<U16>(high << 8);
     }
 
@@ -262,7 +262,7 @@ void CPU::Push(U8 value)
 {
     if (auto bus = m_Bus.lock())
     {
-        bus->Write(--m_SP, value);
+        MemWrite(--m_SP, value);
     }
 }
 
@@ -284,7 +284,7 @@ U8 CPU::Pop()
 {
     if (auto bus = m_Bus.lock())
     {
-        return bus->Read(m_SP++);
+        return MemRead(m_SP++);
     }
     exit(1);
 }
@@ -525,7 +525,29 @@ void CPU::SavePixels()
     */
 }
 
+U8 CPU::MemRead(const Address address)
+{
+    if (m_Tick) m_Tick(4);
+    m_TickedCycles += 4;
+    if (const auto bus = m_Bus.lock()) return bus->Read(address);
+    return 0xFF;
+}
+
+void CPU::MemWrite(const Address address, const U8 value)
+{
+    if (m_Tick) m_Tick(4);
+    m_TickedCycles += 4;
+    if (const auto bus = m_Bus.lock()) bus->Write(address, value);
+}
+
 U8 CPU::Step()
+{
+    m_TickedCycles = 0;
+    const U8 total = StepInstruction();
+    return total > m_TickedCycles ? total - m_TickedCycles : 0;
+}
+
+U8 CPU::StepInstruction()
 {
     if (auto bus = m_Bus.lock())
     {
@@ -598,7 +620,7 @@ U8 CPU::Step()
             Register(Register16::SP), Register(Register16::PC), PCMEM[0], PCMEM[1], PCMEM[2], PCMEM[3]);
         m_Log << str << '\n';*/
 
-        const auto opcode = bus->Read(m_PC++);
+        const auto opcode = MemRead(m_PC++);
         const auto block = opcode & 0xC0;
         const auto params = opcode & 0x3F;
 
@@ -613,6 +635,7 @@ U8 CPU::Step()
         if (bus->Read(0xFF02) == 0x81)
         {
             std::print("{}", static_cast<char>(bus->Read(0xFF01)));
+            std::fflush(stdout); // lets a test runner see results while the emulator is still running
             bus->Write(0xFF02, 0x0);
         }
 
@@ -774,7 +797,7 @@ U8 CPU::Step()
                     return Return(); // ret
                 case 0x0B:
                     {
-                        const U8 suffix = bus->Read(m_PC++);
+                        const U8 suffix = MemRead(m_PC++);
                         const U8 suffixBlock = (suffix & 0xC0) >> 6;
                         const U8 operand = suffix & 0x7;
                         const U8 bitIndex = (suffix & 0x38) >> 3;
@@ -912,8 +935,8 @@ U8 CPU::LoadFromStackPointer()
 
     if (const auto bus = m_Bus.lock())
     {
-        bus->Write(address++, static_cast<U8>(Register(Register16::SP) & 0xFF));
-        bus->Write(address, static_cast<U8>(Register(Register16::SP) >> 8));
+        MemWrite(address++, static_cast<U8>(Register(Register16::SP) & 0xFF));
+        MemWrite(address, static_cast<U8>(Register(Register16::SP) >> 8));
     }
 
     return 20;
@@ -936,7 +959,7 @@ U8 CPU::LoadAccumulatorToR16Address(Register16 reg)
     {
         const U8 data = Register(Register8::A);
         const Address address = Register(reg);
-        bus->Write(address, data);
+        MemWrite(address, data);
 
         if (reg == Register16::HLd)
         {
@@ -972,7 +995,7 @@ U8 CPU::LoadR16AddressToAccumulator(Register16 reg)
     if (const auto bus = m_Bus.lock())
     {
         const Address address = Register(reg);
-        const U8 data = bus->Read(address);
+        const U8 data = MemRead(address);
         Register(Register8::A, data);
 
         if (address == 0xFF0F)
@@ -1068,7 +1091,7 @@ U8 CPU::LoadHighToAccumulator(Register8 reg)
     if (const auto bus = m_Bus.lock())
     {
         const Address address = 0xFF00 + Register(reg);
-        Register(Register8::A, bus->Read(address));
+        Register(Register8::A, MemRead(address));
     }
 
     return reg == Register8::Imm8 ? 12 : 8;
@@ -1081,7 +1104,7 @@ U8 CPU::LoadHighFromAccumulator(Register8 reg)
     if (const auto bus = m_Bus.lock())
     {
         const Address address = 0xFF00 + Register(reg);
-        bus->Write(address, Register(Register8::A));
+        MemWrite(address, Register(Register8::A));
     }
 
     return reg == Register8::Imm8 ? 12 : 8;
