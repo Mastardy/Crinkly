@@ -213,6 +213,7 @@ public:
 
 private:
     U8 StepInstruction();
+    U8 ExecuteInstruction();
     U8 MemRead(Address address);
     void MemWrite(Address address, U8 value);
 
@@ -258,6 +259,7 @@ private:
     U16 m_PC;
     bool m_IME;
     bool m_IME_Next_Cycle;
+    bool m_IME_Cancel;
     bool m_Interrupting;
     bool m_Halted;
     U8 m_Wait;

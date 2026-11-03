@@ -24,6 +24,7 @@ CPU::CPU(const std::shared_ptr<Bus>& bus)
     m_PC = 0x0000;
     m_IME = false;
     m_IME_Next_Cycle = false;
+    m_IME_Cancel = false;
     m_Interrupting = false;
     m_Halted = false;
     m_Wait = 0;
@@ -549,14 +550,20 @@ U8 CPU::Step()
 
 U8 CPU::StepInstruction()
 {
+    const auto enableIme = m_IME_Next_Cycle;
+    m_IME_Next_Cycle = false;
+    m_IME_Cancel = false;
+
+    const U8 cycles = ExecuteInstruction();
+
+    if (enableIme && !m_IME_Cancel) m_IME = true;
+    return cycles;
+}
+
+U8 CPU::ExecuteInstruction()
+{
     if (auto bus = m_Bus.lock())
     {
-        if (m_IME_Next_Cycle)
-        {
-            m_IME = true;
-            m_IME_Next_Cycle = false;
-        }
-
         if (m_IME)
         {
             auto interrupt = bus->Read(0xFF0F) & bus->Read(0xFFFF);
@@ -564,7 +571,8 @@ U8 CPU::StepInstruction()
             {
                 m_IME = false;
                 m_IME_Next_Cycle = false;
-                
+                m_IME_Cancel = true;
+
                 m_Interrupting = true;
 
                 Push(m_PC);
@@ -635,7 +643,6 @@ U8 CPU::StepInstruction()
         if (bus->Read(0xFF02) == 0x81)
         {
             std::print("{}", static_cast<char>(bus->Read(0xFF01)));
-            std::fflush(stdout); // lets a test runner see results while the emulator is still running
             bus->Write(0xFF02, 0x0);
         }
 
@@ -1261,11 +1268,12 @@ U8 CPU::Cp(Register8 reg)
 U8 CPU::Increment(Register8 reg)
 {
     const U8 value = Register(reg);
-    Register(reg, value + 1);
+    const U8 result = value + 1;
+    Register(reg, result);
 
     PrintInstruction("inc {}({:02X})", RegisterLiteral(reg), value);
 
-    Flag(Flags::Z, Register(reg) == 0x00);
+    Flag(Flags::Z, result == 0x00);
     Flag(Flags::N, false);
     Flag(Flags::H, (value & 0xF) == 0xF);
 
@@ -1277,9 +1285,10 @@ U8 CPU::Decrement(Register8 reg)
     PrintInstruction("dec r8");
 
     const U8 value = Register(reg);
-    Register(reg, value - 1);
+    const U8 result = value - 1;
+    Register(reg, result);
 
-    Flag(Flags::Z, Register(reg) == 0x00);
+    Flag(Flags::Z, result == 0x00);
     Flag(Flags::N, true);
     Flag(Flags::H, (value & 0x0F) == 0x0);
 
@@ -1461,8 +1470,9 @@ U8 CPU::RotateLeftCarry(Register8 reg)
 {
     PrintInstruction("rlc r8");
 
-    const bool carry = Register(reg) & 0x80;
-    const U8 result = static_cast<U8>(Register(reg) << 1) | static_cast<U8>(carry);
+    const U8 value = Register(reg);
+    const bool carry = value & 0x80;
+    const U8 result = static_cast<U8>(value << 1) | static_cast<U8>(carry);
     Register(reg, result);
 
     Flag(Flags::Z, result == 0x00);
@@ -1477,8 +1487,9 @@ U8 CPU::RotateRightCarry(Register8 reg)
 {
     PrintInstruction("rrc r8");
 
-    const bool carry = Register(reg) & 0x01;
-    const U8 result = static_cast<U8>(Register(reg) >> 1) | (carry ? 0x80 : 0x00);
+    const U8 value = Register(reg);
+    const bool carry = value & 0x01;
+    const U8 result = static_cast<U8>(value >> 1) | (carry ? 0x80 : 0x00);
     Register(reg, result);
 
     Flag(Flags::Z, result == 0x00);
@@ -1493,8 +1504,9 @@ U8 CPU::RotateLeft(Register8 reg)
 {
     PrintInstruction("rl r8");
 
-    const bool carry = Register(reg) & 0x80;
-    const U8 result = static_cast<U8>(Register(reg) << 1) | static_cast<U8>(Flag(Flags::C));
+    const U8 value = Register(reg);
+    const bool carry = value & 0x80;
+    const U8 result = static_cast<U8>(value << 1) | static_cast<U8>(Flag(Flags::C));
     Register(reg, result);
 
     Flag(Flags::Z, result == 0x00);
@@ -1509,8 +1521,9 @@ U8 CPU::RotateRight(Register8 reg)
 {
     PrintInstruction("rr r8");
 
-    const bool carry = Register(reg) & 0x01;
-    const U8 result = static_cast<U8>(Register(reg) >> 1) | (Flag(Flags::C) ? 0x80 : 0x00);
+    const U8 value = Register(reg);
+    const bool carry = value & 0x01;
+    const U8 result = static_cast<U8>(value >> 1) | (Flag(Flags::C) ? 0x80 : 0x00);
     Register(reg, result);
 
     Flag(Flags::Z, result == 0x00);
@@ -1525,10 +1538,12 @@ U8 CPU::ShiftLeft(Register8 reg)
 {
     PrintInstruction("sla r8");
 
-    const bool carry = Register(reg) & 0x80;
-    Register(reg, static_cast<U8>(Register(reg) << 1));
+    const U8 value = Register(reg);
+    const bool carry = value & 0x80;
+    const U8 result = static_cast<U8>(value << 1);
+    Register(reg, result);
 
-    Flag(Flags::Z, Register(reg) == 0x00);
+    Flag(Flags::Z, result == 0x00);
     Flag(Flags::N, false);
     Flag(Flags::H, false);
     Flag(Flags::C, carry);
@@ -1540,11 +1555,13 @@ U8 CPU::ShiftRight(Register8 reg)
 {
     PrintInstruction("sra r8");
 
-    const bool bit7 = Register(reg) & 0x80;
-    const bool carry = Register(reg) & 0x01;
-    Register(reg, static_cast<U8>(Register(reg) >> 1) | (bit7 ? 0x80 : 0x00));
+    const U8 value = Register(reg);
+    const bool bit7 = value & 0x80;
+    const bool carry = value & 0x01;
+    const U8 result = static_cast<U8>(value >> 1) | (bit7 ? 0x80 : 0x00);
+    Register(reg, result);
 
-    Flag(Flags::Z, Register(reg) == 0x00);
+    Flag(Flags::Z, result == 0x00);
     Flag(Flags::N, false);
     Flag(Flags::H, false);
     Flag(Flags::C, carry);
@@ -1556,10 +1573,12 @@ U8 CPU::ShiftRightLogically(Register8 reg)
 {
     PrintInstruction("srl r8");
 
-    const bool carry = Register(reg) & 0x01;
-    Register(reg, static_cast<U8>(Register(reg) >> 1));
+    const U8 value = Register(reg);
+    const bool carry = value & 0x01;
+    const U8 result = static_cast<U8>(value >> 1);
+    Register(reg, result);
 
-    Flag(Flags::Z, Register(reg) == 0x00);
+    Flag(Flags::Z, result == 0x00);
     Flag(Flags::N, false);
     Flag(Flags::H, false);
     Flag(Flags::C, carry);
@@ -1572,12 +1591,13 @@ U8 CPU::Swap(Register8 reg)
 {
     PrintInstruction("swap r8");
 
-    const U8 lsn = Register(reg) & 0x0F;
-    const U8 hsn = Register(reg) & 0xF0;
+    const U8 value = Register(reg);
+    const U8 lsn = value & 0x0F;
+    const U8 hsn = value & 0xF0;
 
     Register(reg, static_cast<U8>(lsn << 4) | static_cast<U8>(hsn >> 4));
 
-    Flag(Flags::Z, Register(reg) == 0x00);
+    Flag(Flags::Z, value == 0x00);
     Flag(Flags::N, false);
     Flag(Flags::H, false);
     Flag(Flags::C, false);
@@ -1723,6 +1743,7 @@ U8 CPU::DisableInterrupts()
 {
     PrintInstruction("di");
     m_IME = false;
+    m_IME_Cancel = true;
     return 4;
 }
 
