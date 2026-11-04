@@ -31,11 +31,8 @@ std::string fs = R"(
     }
 )";
 
-LCD::LCD(const std::shared_ptr<Bus>& bus, const std::shared_ptr<Joypad>& joypad)
+LCD::LCD(Bus& bus, Joypad& joypad) : m_Bus(bus), m_Joypad(joypad)
 {
-    m_Bus = bus;
-    m_Joypad = joypad;
-
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -183,166 +180,160 @@ LCD::~LCD()
 
 void LCD::Present(const std::array<U8, 69120>& frame)
 {
-    if (const auto bus = m_Bus.lock())
+    if (glfwWindowShouldClose(m_Window) || glfwWindowShouldClose(m_WindowDebug))
     {
-        if (glfwWindowShouldClose(m_Window) || glfwWindowShouldClose(m_WindowDebug))
+        std::println("Window closed");
+        this->~LCD();
+        exit(1);
+    }
+
+    glfwMakeContextCurrent(m_Window);
+
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 160, 144, GL_RGB, GL_UNSIGNED_BYTE, frame.data());
+
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, m_Texture);
+
+    glUseProgram(m_ShaderProgram);
+    glBindVertexArray(m_VAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+    glfwSwapBuffers(m_Window);
+    glfwPollEvents();
+
+    glfwMakeContextCurrent(m_WindowDebug);
+
+    std::vector<U8> m_ViewBufferDebug;
+
+    for (S32 ty = 23; ty >= 0; ty--)
+    {
+        for (S32 y = 7; y >= 0; y--)
         {
-            std::println("Window closed");
-            this->~LCD();
-            exit(1);
-        }
-
-        glfwMakeContextCurrent(m_Window);
-
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 160, 144, GL_RGB, GL_UNSIGNED_BYTE, frame.data());
-
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, m_Texture);
-
-        glUseProgram(m_ShaderProgram);
-        glBindVertexArray(m_VAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-        glfwSwapBuffers(m_Window);
-        glfwPollEvents();
-
-        glfwMakeContextCurrent(m_WindowDebug);
-
-        std::vector<U8> m_ViewBufferDebug;
-
-        for (S32 ty = 23; ty >= 0; ty--)
-        {
-            for (S32 y = 7; y >= 0; y--)
+            for (S32 tx = 0; tx < 16; tx++)
             {
-                for (S32 tx = 0; tx < 16; tx++)
+                for (S32 x = 0; x < 8; x++)
                 {
-                    for (S32 x = 0; x < 8; x++)
+                    if (tx == 0 && x == 0 || (tx == 15 && x == 7))
                     {
-                        if (tx == 0 && x == 0 || (tx == 15 && x == 7))
+                        if (ty < 8)
                         {
-                            if (ty < 8)
-                            {
-                                m_ViewBufferDebug.push_back(255);
-                                m_ViewBufferDebug.push_back(0);
-                                m_ViewBufferDebug.push_back(0);
-                            }
-                            else if (ty < 16)
-                            {
-                                m_ViewBufferDebug.push_back(0);
-                                m_ViewBufferDebug.push_back(255);
-                                m_ViewBufferDebug.push_back(0);
-                            }
-                            else
-                            {
-                                m_ViewBufferDebug.push_back(0);
-                                m_ViewBufferDebug.push_back(0);
-                                m_ViewBufferDebug.push_back(255);
-                            }
+                            m_ViewBufferDebug.push_back(255);
+                            m_ViewBufferDebug.push_back(0);
+                            m_ViewBufferDebug.push_back(0);
+                        }
+                        else if (ty < 16)
+                        {
+                            m_ViewBufferDebug.push_back(0);
+                            m_ViewBufferDebug.push_back(255);
+                            m_ViewBufferDebug.push_back(0);
+                        }
+                        else
+                        {
+                            m_ViewBufferDebug.push_back(0);
+                            m_ViewBufferDebug.push_back(0);
+                            m_ViewBufferDebug.push_back(255);
+                        }
+                        continue;
+                    }
+                    else if (y == 7)
+                    {
+                        if (ty == 7)
+                        {
+                            m_ViewBufferDebug.push_back(255);
+                            m_ViewBufferDebug.push_back(0);
+                            m_ViewBufferDebug.push_back(0);
                             continue;
                         }
-                        else if (y == 7)
+                        else if (ty == 15)
                         {
-                            if (ty == 7)
-                            {
-                                m_ViewBufferDebug.push_back(255);
-                                m_ViewBufferDebug.push_back(0);
-                                m_ViewBufferDebug.push_back(0);
-                                continue;
-                            }
-                            else if (ty == 15)
-                            {
-                                m_ViewBufferDebug.push_back(0);
-                                m_ViewBufferDebug.push_back(255);
-                                m_ViewBufferDebug.push_back(0);
-                                continue;
-                            }
-                            else if (ty == 23)
-                            {
-                                m_ViewBufferDebug.push_back(0);
-                                m_ViewBufferDebug.push_back(0);
-                                m_ViewBufferDebug.push_back(255);
-                                continue;
-                            }
+                            m_ViewBufferDebug.push_back(0);
+                            m_ViewBufferDebug.push_back(255);
+                            m_ViewBufferDebug.push_back(0);
+                            continue;
                         }
-                        else if (y == 0)
+                        else if (ty == 23)
                         {
-                            if (ty == 0)
-                            {
-                                m_ViewBufferDebug.push_back(255);
-                                m_ViewBufferDebug.push_back(0);
-                                m_ViewBufferDebug.push_back(0);
-                                continue;
-                            }
-                            else if (ty == 8)
-                            {
-                                m_ViewBufferDebug.push_back(0);
-                                m_ViewBufferDebug.push_back(255);
-                                m_ViewBufferDebug.push_back(0);
-                                continue;
-                            }
-                            else if (ty == 16)
-                            {
-                                m_ViewBufferDebug.push_back(0);
-                                m_ViewBufferDebug.push_back(0);
-                                m_ViewBufferDebug.push_back(255);
-                                continue;
-                            }
+                            m_ViewBufferDebug.push_back(0);
+                            m_ViewBufferDebug.push_back(0);
+                            m_ViewBufferDebug.push_back(255);
+                            continue;
                         }
-
-                        U16 byteStride = static_cast<U16>(ty * 16 + tx) * 16;
-                        U16 address = 0x8000 + byteStride + static_cast<U16>(y * 2);
-
-                        U8 leftByte = bus->Read(address);
-                        U8 rightByte = bus->Read(address + 1);
-
-                        U8 lsb = (leftByte >> static_cast<U8>(7 - x)) & 0x01;
-                        U8 msb = (rightByte >> static_cast<U8>(7 - x)) & 0x01;
-
-                        U8 pixel = static_cast<U8>(msb << 1) | lsb;
-
-                        m_ViewBufferDebug.push_back(pixel * 85);
-                        m_ViewBufferDebug.push_back(pixel * 85);
-                        m_ViewBufferDebug.push_back(pixel * 85);
                     }
+                    else if (y == 0)
+                    {
+                        if (ty == 0)
+                        {
+                            m_ViewBufferDebug.push_back(255);
+                            m_ViewBufferDebug.push_back(0);
+                            m_ViewBufferDebug.push_back(0);
+                            continue;
+                        }
+                        else if (ty == 8)
+                        {
+                            m_ViewBufferDebug.push_back(0);
+                            m_ViewBufferDebug.push_back(255);
+                            m_ViewBufferDebug.push_back(0);
+                            continue;
+                        }
+                        else if (ty == 16)
+                        {
+                            m_ViewBufferDebug.push_back(0);
+                            m_ViewBufferDebug.push_back(0);
+                            m_ViewBufferDebug.push_back(255);
+                            continue;
+                        }
+                    }
+
+                    U16 byteStride = static_cast<U16>(ty * 16 + tx) * 16;
+                    U16 address = 0x8000 + byteStride + static_cast<U16>(y * 2);
+
+                    U8 leftByte = m_Bus.ReadRaw(address);
+                    U8 rightByte = m_Bus.ReadRaw(address + 1);
+
+                    U8 lsb = (leftByte >> static_cast<U8>(7 - x)) & 0x01;
+                    U8 msb = (rightByte >> static_cast<U8>(7 - x)) & 0x01;
+
+                    U8 pixel = static_cast<U8>(msb << 1) | lsb;
+
+                    m_ViewBufferDebug.push_back(pixel * 85);
+                    m_ViewBufferDebug.push_back(pixel * 85);
+                    m_ViewBufferDebug.push_back(pixel * 85);
                 }
             }
         }
-
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 128, 192, GL_RGB, GL_UNSIGNED_BYTE, m_ViewBufferDebug.data());
-
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, m_TextureDebug);
-
-        glUseProgram(m_ShaderProgramDebug);
-        glBindVertexArray(m_VAODebug);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-        glfwSwapBuffers(m_WindowDebug);
-        glfwPollEvents();
-        PollJoypad();
     }
+
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 128, 192, GL_RGB, GL_UNSIGNED_BYTE, m_ViewBufferDebug.data());
+
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, m_TextureDebug);
+
+    glUseProgram(m_ShaderProgramDebug);
+    glBindVertexArray(m_VAODebug);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+    glfwSwapBuffers(m_WindowDebug);
+    glfwPollEvents();
+    PollJoypad();
 }
 
 void LCD::PollJoypad()
 {
-    const auto joypad = m_Joypad.lock();
-    if (!joypad) return;
-
     auto IsPressed = [this](int k) { return glfwGetKey(m_Window, k) == GLFW_PRESS; };
 
-    joypad->SetDPad(Joypad::Button::Right, IsPressed(GLFW_KEY_RIGHT));
-    joypad->SetDPad(Joypad::Button::Left, IsPressed(GLFW_KEY_LEFT));
-    joypad->SetDPad(Joypad::Button::Up, IsPressed(GLFW_KEY_UP));
-    joypad->SetDPad(Joypad::Button::Down, IsPressed(GLFW_KEY_DOWN));
+    m_Joypad.SetDPad(Joypad::Button::Right, IsPressed(GLFW_KEY_RIGHT));
+    m_Joypad.SetDPad(Joypad::Button::Left, IsPressed(GLFW_KEY_LEFT));
+    m_Joypad.SetDPad(Joypad::Button::Up, IsPressed(GLFW_KEY_UP));
+    m_Joypad.SetDPad(Joypad::Button::Down, IsPressed(GLFW_KEY_DOWN));
 
-    joypad->SetButtons(Joypad::Button::A, IsPressed(GLFW_KEY_Z));
-    joypad->SetButtons(Joypad::Button::B, IsPressed(GLFW_KEY_X));
-    joypad->SetButtons(Joypad::Button::Select, IsPressed(GLFW_KEY_RIGHT_SHIFT));
-    joypad->SetButtons(Joypad::Button::Start, IsPressed(GLFW_KEY_ENTER));
+    m_Joypad.SetButtons(Joypad::Button::A, IsPressed(GLFW_KEY_Z));
+    m_Joypad.SetButtons(Joypad::Button::B, IsPressed(GLFW_KEY_X));
+    m_Joypad.SetButtons(Joypad::Button::Select, IsPressed(GLFW_KEY_RIGHT_SHIFT));
+    m_Joypad.SetButtons(Joypad::Button::Start, IsPressed(GLFW_KEY_ENTER));
 }

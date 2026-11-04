@@ -17,7 +17,7 @@ private:
     static constexpr Size WORK_RAM_SIZE = 8_Kb;
 
 public:
-    Bus(const std::shared_ptr<Timer>& timer, const std::shared_ptr<Joypad>& joypad);
+    Bus(Timer& timer, Joypad& joypad);
 
     void InsertCartridge(const std::string& cartridge);
     std::string CartridgeName() const { return m_CartridgeName; }
@@ -26,6 +26,9 @@ public:
     std::vector<Byte> Read(Address start, Size length);
 
     void Write(Address, Byte);
+
+    Byte ReadRaw(Address address);
+    void WriteRaw(Address, Byte);
 
     std::shared_ptr<Cartridge> m_Cartridge;
 
@@ -37,8 +40,8 @@ private:
     std::vector<Byte> m_IO_Registers;
     std::vector<Byte> m_HighRAM;
 
-    std::weak_ptr<Timer> m_Timer;
-    std::weak_ptr<Joypad> m_Joypad;
+    Timer& m_Timer;
+    Joypad& m_Joypad;
 
     Byte m_InterruptEnable;
     std::string m_CartridgeName;

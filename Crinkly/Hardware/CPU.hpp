@@ -49,7 +49,7 @@ public:
     };
 
 public:
-    CPU(const std::shared_ptr<Bus>& bus);
+    CPU(Bus& bus);
     ~CPU();
 
     void SavePixels();
@@ -221,7 +221,7 @@ private:
     U8 m_TickedCycles = 0;
 
     std::array<U8, 8> m_Registers;
-    std::weak_ptr<Bus> m_Bus;
+    Bus& m_Bus;
 
     static constexpr std::array<Register8, 8> R8 = {
         Register8::B,

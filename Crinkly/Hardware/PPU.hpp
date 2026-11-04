@@ -18,7 +18,7 @@ class PPU
     static constexpr U8 SHADES[4] = {255, 170, 85, 0};
 
 public:
-    PPU(const std::shared_ptr<Bus>& bus, const std::shared_ptr<LCD>& lcd);
+    PPU(Bus& bus, LCD& lcd);
 
     void Step(U8 tCycles);
 
@@ -36,6 +36,6 @@ private:
     std::array<U8, 69120> m_FrameBuffer;
     U8 m_WindowLine;
 
-    std::weak_ptr<Bus> m_Bus;
-    std::weak_ptr<LCD> m_LCD;
+    Bus& m_Bus;
+    LCD& m_LCD;
 };

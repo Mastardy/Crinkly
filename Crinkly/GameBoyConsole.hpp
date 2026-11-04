@@ -40,12 +40,12 @@ public:
 private:
     bool m_Running = true;
 
+    std::shared_ptr<Timer> m_Timer;
+    std::shared_ptr<Joypad> m_Joypad;
     std::shared_ptr<Bus> m_Bus;
     std::shared_ptr<CPU> m_CPU;
     std::shared_ptr<LCD> m_LCD;
     std::shared_ptr<PPU> m_PPU;
     std::shared_ptr<APU> m_APU;
-    std::shared_ptr<Timer> m_Timer;
-    std::shared_ptr<Joypad> m_Joypad;
     std::shared_ptr<Cartridge> m_Cartridge;
 };

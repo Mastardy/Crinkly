@@ -7,10 +7,8 @@ auto squarePhase = 0.0;
 auto sinePhase = 0.0;
 auto volume = 0.0001f;
 
-APU::APU(std::weak_ptr<Bus> bus)
+APU::APU(Bus& bus) : m_Bus(bus)
 {
-    m_Bus = bus;
-    
     m_Device = std::make_unique<ma_device>();
     m_Config = std::make_unique<ma_device_config>(ma_device_type_playback);
 
@@ -62,20 +60,17 @@ void APU::PullSamples(ma_device* device, void* output, const void* input, ma_uin
 
 void APU::Step(U8 tCycles)
 {
-    if (auto bus = m_Bus.lock())
-    {
-        auto NR52 = bus->Read(0xFF26);
+    auto NR52 = m_Bus.ReadRaw(0xFF26);
 
-        if (m_NR52 == NR52) return;
+    if (m_NR52 == NR52) return;
 
-        std::print("NR52: {:02X} - ", NR52);
+    std::print("NR52: {:02X} - ", NR52);
 
-        if (NR52 & 0x80) std::print("Audio ON");
-        else std::print("Audio OFF");
+    if (NR52 & 0x80) std::print("Audio ON");
+    else std::print("Audio OFF");
 
-        std::print(" | CH4 {} | CH3 {} | CH2 {} | CH1 {}\n", NR52 & 0x8 ? "ON" : "OFF", NR52 & 0x4 ? "ON" : "OFF",
-                   NR52 & 0x2 ? "ON" : "OFF", NR52 & 0x1 ? "ON" : "OFF");
+    std::print(" | CH4 {} | CH3 {} | CH2 {} | CH1 {}\n", NR52 & 0x8 ? "ON" : "OFF", NR52 & 0x4 ? "ON" : "OFF",
+               NR52 & 0x2 ? "ON" : "OFF", NR52 & 0x1 ? "ON" : "OFF");
 
-        m_NR52 = NR52;
-    }
+    m_NR52 = NR52;
 }
