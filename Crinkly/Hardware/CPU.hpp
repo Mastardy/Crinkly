@@ -52,7 +52,6 @@ public:
     CPU(Bus& bus);
     ~CPU();
 
-    void SavePixels();
     void Bootstrap();
 
     U8 Register(Register8 reg);

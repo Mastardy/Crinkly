@@ -280,222 +280,6 @@ U16 CPU::Pop16()
 #pragma endregion
 #pragma endregion
 
-void CPU::SavePixels()
-{
-    /*
-    if (const auto bus = m_Bus.lock())
-    {
-        std::string folder = std::format("frames/{}/Tile Blocks", bus->CartridgeName());
-        std::filesystem::create_directories(folder);
-
-        std::ofstream tileBlock(std::format("{}/{}.bmp", folder, frame));
-
-        U8 header[54] = {
-            0x42, 0x4D,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
-            54, 0, 0, 0,
-            40, 0, 0, 0,
-            128, 0, 0, 0,
-            192, 0, 0, 0,
-            1, 0,
-            24, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0
-        };
-
-        int fileSize = 54 + 192 * 128 * 3;
-        header[2] = static_cast<U8>(fileSize & 0xFF);
-        header[3] = static_cast<U8>((fileSize >> 8) & 0xFF);
-        header[4] = static_cast<U8>((fileSize >> 16) & 0xFF);
-        header[5] = static_cast<U8>((fileSize >> 24) & 0xFF);
-
-        tileBlock.write(reinterpret_cast<char*>(header), 54);
-
-        for (S32 ty = 23; ty >= 0; ty--)
-        {
-            for (S32 y = 7; y >= 0; y--)
-            {
-                for (S32 tx = 0; tx < 16; tx++)
-                {
-                    for (S32 x = 0; x < 8; x++)
-                    {
-                        if (tx == 0 && x == 0 || (tx == 15 && x == 7))
-                        {
-                            if (ty < 8)
-                            {
-                                tileBlock.put(static_cast<U8>(255));
-                                tileBlock.put(0);
-                                tileBlock.put(0);
-                            }
-                            else if (ty < 16)
-                            {
-                                tileBlock.put(0);
-                                tileBlock.put(static_cast<U8>(255));
-                                tileBlock.put(0);
-                            }
-                            else
-                            {
-                                tileBlock.put(0);
-                                tileBlock.put(0);
-                                tileBlock.put(static_cast<U8>(255));
-                            }
-                            continue;
-                        }
-                        else if (y == 7)
-                        {
-                            if (ty == 7)
-                            {
-                                tileBlock.put(static_cast<U8>(255));
-                                tileBlock.put(0);
-                                tileBlock.put(0);
-                                continue;
-                            }
-                            else if (ty == 15)
-                            {
-                                tileBlock.put(0);
-                                tileBlock.put(static_cast<U8>(255));
-                                tileBlock.put(0);
-                                continue;
-                            }
-                            else if (ty == 23)
-                            {
-                                tileBlock.put(0);
-                                tileBlock.put(0);
-                                tileBlock.put(static_cast<U8>(255));
-                                continue;
-                            }
-                        }
-                        else if (y == 0)
-                        {
-                            if (ty == 0)
-                            {
-                                tileBlock.put(static_cast<U8>(255));
-                                tileBlock.put(0);
-                                tileBlock.put(0);
-                                continue;
-                            }
-                            else if (ty == 8)
-                            {
-                                tileBlock.put(0);
-                                tileBlock.put(static_cast<U8>(255));
-                                tileBlock.put(0);
-                                continue;
-                            }
-                            else if (ty == 16)
-                            {
-                                tileBlock.put(0);
-                                tileBlock.put(0);
-                                tileBlock.put(static_cast<U8>(255));
-                                continue;
-                            }
-                        }
-
-                        U16 byteStride = static_cast<U16>(ty * 16 + tx) * 16;
-                        U16 address = 0x8000 + byteStride + static_cast<U16>(y * 2);
-
-                        U8 leftByte = bus->Read(address);
-                        U8 rightByte = bus->Read(address + 1);
-
-                        U8 lsb = (leftByte >> static_cast<U8>(7 - x)) & 0x01;
-                        U8 msb = (rightByte >> static_cast<U8>(7 - x)) & 0x01;
-
-                        U8 pixel = static_cast<U8>(msb << 1) | lsb;
-
-                        tileBlock.put(pixel * 85);
-                        tileBlock.put(pixel * 85);
-                        tileBlock.put(pixel * 85);
-                    }
-                }
-            }
-        }
-
-        folder = std::format("frames/{}/Tile Maps", bus->CartridgeName());
-        std::filesystem::create_directories(folder);
-
-        std::ofstream tileMap1(std::format("{}/1-{}.bmp", folder, frame));
-        std::ofstream tileMap2(std::format("{}/2-{}.bmp", folder, frame));
-
-        U8 tileMapHeader[54] = {
-            0x42, 0x4D,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
-            54, 0, 0, 0,
-            40, 0, 0, 0,
-            0, 1, 0, 0,
-            0, 1, 0, 0,
-            1, 0,
-            24, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0,
-            0, 0, 0, 0
-        };
-
-        fileSize = 54 + 256 * 256 * 3;
-        tileMapHeader[2] = static_cast<U8>(fileSize & 0xFF);
-        tileMapHeader[3] = static_cast<U8>((fileSize >> 8) & 0xFF);
-        tileMapHeader[4] = static_cast<U8>((fileSize >> 16) & 0xFF);
-        tileMapHeader[5] = static_cast<U8>((fileSize >> 24) & 0xFF);
-
-        tileMap1.write(reinterpret_cast<char*>(tileMapHeader), 54);
-        tileMap2.write(reinterpret_cast<char*>(tileMapHeader), 54);
-
-        for (S32 ty = 31; ty >= 0; ty--)
-        {
-            for (S32 y = 7; y >= 0; y--)
-            {
-                for (S32 tx = 0; tx < 32; tx++)
-                {
-                    for (S32 x = 0; x < 8; x++)
-                    {
-                        U16 addressOffset = 0x9800 + static_cast<U16>(ty * 32 + tx);
-                        U16 tileIndex = bus->Read(addressOffset);
-                        U16 address = 0x8000 + tileIndex * 16 + static_cast<U16>(y * 2);
-
-                        U8 leftByte = bus->Read(address);
-                        U8 rightByte = bus->Read(address + 1);
-
-                        U8 lsb = (leftByte >> static_cast<U8>(7 - x)) & 0x01;
-                        U8 msb = (rightByte >> static_cast<U8>(7 - x)) & 0x01;
-
-                        U8 pixel = static_cast<U8>(msb << 1) | lsb;
-
-                        tileMap1.put(pixel * 85);
-                        tileMap1.put(pixel * 85);
-                        tileMap1.put(pixel * 85);
-
-                        addressOffset = 0x9C00 + static_cast<U16>(ty * 32 + tx);
-                        tileIndex = bus->Read(addressOffset);
-                        address = 0x8000 + tileIndex * 16 + static_cast<U16>(y * 2);
-
-                        leftByte = bus->Read(address);
-                        rightByte = bus->Read(address + 1);
-
-                        lsb = (leftByte >> static_cast<U8>(7 - x)) & 0x01;
-                        msb = (rightByte >> static_cast<U8>(7 - x)) & 0x01;
-
-                        pixel = static_cast<U8>(msb << 1) | lsb;
-
-                        tileMap2.put(pixel * 85);
-                        tileMap2.put(pixel * 85);
-                        tileMap2.put(pixel * 85);
-                    }
-                }
-            }
-        }
-
-        std::cin.get();
-    }
-    */
-}
-
 U8 CPU::MemRead(const Address address)
 {
     if (m_Tick) m_Tick(4);
@@ -533,7 +317,7 @@ U8 CPU::ExecuteInstruction()
 {
     if (m_IME)
     {
-        auto interrupt = m_Bus.Read(0xFF0F) & m_Bus.Read(0xFFFF);
+        auto interrupt = m_Bus.Read(0xFF0F) & m_Bus.Read(0xFFFF) & 0x1F;
         if (interrupt != 0x00)
         {
             m_IME = false;
@@ -575,7 +359,7 @@ U8 CPU::ExecuteInstruction()
 
     if (m_Halted)
     {
-        const auto pending = m_Bus.Read(0xFF0F) & m_Bus.Read(0xFFFF);
+        const auto pending = m_Bus.Read(0xFF0F) & m_Bus.Read(0xFFFF) & 0x1F;
         if (pending == 0)
             return 4;
         m_Halted = false; // IME=false HALT bug: exit halt, execute instruction after HALT
@@ -609,8 +393,10 @@ U8 CPU::ExecuteInstruction()
 
     if (m_Bus.Read(0xFF02) == 0x81)
     {
-        std::print("{}", static_cast<char>(m_Bus.Read(0xFF01)));
+        std::print("0xFF01: {}", static_cast<char>(m_Bus.Read(0xFF01)));
         m_Bus.Write(0xFF02, 0x0);
+        m_Bus.Write(0xFF01, 0xFF);
+        m_Bus.Write(0xFF0F, m_Bus.Read(0xFF0F) | 0x08);
     }
 
 #ifdef DEBUG_BLARGG

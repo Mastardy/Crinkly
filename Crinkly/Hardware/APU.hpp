@@ -20,5 +20,12 @@ private:
     Bus& m_Bus;
     
     // TEMP
+    int m_SweepCycles = 0;
+    int m_SweepTicks = 0;
+    bool m_Ch1On = true;
+    bool m_Ch2On = true;
+    
+    Byte m_NR50;
+    Byte m_NR51;
     Byte m_NR52;
 };
