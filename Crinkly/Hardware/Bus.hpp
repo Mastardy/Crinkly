@@ -31,6 +31,7 @@ public:
     void WriteRaw(Address, Byte);
 
     std::shared_ptr<Cartridge> m_Cartridge;
+    std::function<void(Address, Byte)> m_OnWrite;
 
 private:
     std::vector<Byte> m_VideoRAM;

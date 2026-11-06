@@ -10,6 +10,8 @@ AudioChannel::AudioChannel(Address reg0, Bus& bus) : m_Bus(bus)
 
     m_IsEnabled = false;
     m_StatusBit = static_cast<Byte>(1 << ((m_NRx0 - 0xFF10) / 5));
+    m_Length = 0;
+    m_MaxLength = m_NRx0 == 0xFF1A ? 256 : 64;
 }
 
 bool AudioChannel::DacOn()
@@ -35,6 +37,17 @@ void AudioChannel::Trigger()
 
     m_IsEnabled = true;
     m_Bus.WriteRaw(0xFF26, m_Bus.ReadRaw(0xFF26) | m_StatusBit);
-
+    if (m_Length == 0) m_Length = m_MaxLength;
     TriggerExtra();
+}
+
+void AudioChannel::OnWrite(Address address, Byte value)
+{
+    if (address == m_NRx1) m_Length = m_MaxLength - (value & (m_MaxLength - 1));
+}
+
+void AudioChannel::ClockLength()
+{
+    if (!(m_Bus.ReadRaw(m_NRx4) & 0x40) || m_Length == 0) return;
+    if (--m_Length == 0) Disable();
 }

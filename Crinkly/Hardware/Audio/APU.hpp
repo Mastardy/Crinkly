@@ -4,6 +4,8 @@
 #include "Bus.hpp"
 #include "miniaudio.h"
 #include "PulseChannel.hpp"
+#include "WaveChannel.hpp"
+#include "NoiseChannel.hpp"
 
 class APU
 {
@@ -24,8 +26,13 @@ private:
 
     PulseChannel m_Ch1;
     PulseChannel m_Ch2;
+    WaveChannel m_Ch3;
+    NoiseChannel m_Ch4;
 
     std::atomic<Byte> m_NR50 = 0;
     std::atomic<Byte> m_NR51 = 0;
     std::atomic<Byte> m_NR52 = 0;
+
+    int m_FrameCycles = 0;
+    int m_FrameStep = 0;
 };

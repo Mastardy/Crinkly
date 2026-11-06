@@ -48,6 +48,7 @@ void Bus::Write(Address address, Byte value)
     if (address == 0xFF26) value = (m_IO_Registers[0x26] & 0x0F) | (value & 0x80);
     if (address == 0xFF41) value = (m_IO_Registers[0x41] & 0x07) | (value & 0x78);
     WriteRaw(address, value);
+    if (m_OnWrite) m_OnWrite(address, value);
 }
 
 Byte Bus::ReadRaw(Address address)

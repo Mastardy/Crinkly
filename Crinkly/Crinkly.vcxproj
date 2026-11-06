@@ -180,7 +180,9 @@
             <AdditionalIncludeDirectories>;D:\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
         </ClCompile>
         <ClCompile Include="Hardware\Audio\AudioChannel.cpp"/>
+        <ClCompile Include="Hardware\Audio\NoiseChannel.cpp" />
         <ClCompile Include="Hardware\Audio\PulseChannel.cpp" />
+        <ClCompile Include="Hardware\Audio\WaveChannel.cpp" />
         <ClCompile Include="Hardware\Bus.cpp"/>
         <ClCompile Include="Hardware\Cartridge.cpp"/>
         <ClCompile Include="Hardware\CPU.cpp"/>
@@ -350,7 +352,9 @@
         <ClInclude Include="GameBoyConsole.hpp"/>
         <ClInclude Include="Hardware\Audio\APU.hpp"/>
         <ClInclude Include="Hardware\Audio\AudioChannel.hpp"/>
+        <ClInclude Include="Hardware\Audio\NoiseChannel.hpp" />
         <ClInclude Include="Hardware\Audio\PulseChannel.hpp" />
+        <ClInclude Include="Hardware\Audio\WaveChannel.hpp" />
         <ClInclude Include="Hardware\Bus.hpp"/>
         <ClInclude Include="Hardware\Cartridge.hpp"/>
         <ClInclude Include="Hardware\CPU.hpp"/>
