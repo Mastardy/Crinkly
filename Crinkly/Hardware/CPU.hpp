@@ -5,7 +5,7 @@
 #include <memory>
 
 #include "Bus.hpp"
-#include "LCD.hpp"
+#include "Graphics/LCD.hpp"
 #include "Utility/Types.hpp"
 
 class CPU

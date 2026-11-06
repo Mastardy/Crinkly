@@ -1,6 +1,7 @@
 #include "GameBoyConsole.hpp"
 
-#include <iostream>
+#include <chrono>
+#include <thread>
 
 GameBoyConsole::GameBoyConsole()
 {
@@ -13,12 +14,25 @@ GameBoyConsole::GameBoyConsole()
     m_LCD = std::make_shared<LCD>(*m_Bus, *m_Joypad);
     m_PPU = std::make_shared<PPU>(*m_Bus, *m_LCD);
 
-    m_CPU->SetTickCallback([this](const U8 tCycles)
-    {
-        m_Timer->Tick(tCycles);
-        m_PPU->Step(tCycles);
-        m_APU->Step(tCycles);
-    });
+    m_CPU->SetTickCallback([this](const U8 tCycles) { Advance(tCycles); });
+}
+
+void GameBoyConsole::Advance(const U8 tCycles)
+{
+    constexpr auto CLOCK_HZ = 4194304.0;
+    constexpr auto SYNC_CYCLES = 70224;
+
+    m_Timer->Tick(tCycles);
+    m_PPU->Step(tCycles);
+    m_APU->Step(tCycles);
+
+    m_TotalCycles += tCycles;
+    m_SinceSync += tCycles;
+    if (m_SinceSync < SYNC_CYCLES) return;
+
+    m_SinceSync = 0;
+    std::this_thread::sleep_until(m_Start + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                      std::chrono::duration<double>(m_TotalCycles / CLOCK_HZ)));
 }
 
 GameBoyConsole::~GameBoyConsole()
@@ -41,11 +55,10 @@ void GameBoyConsole::EjectCartridge()
 
 void GameBoyConsole::Run()
 {
+    m_Start = std::chrono::steady_clock::now();
+
     while (m_Running)
     {
-        auto tCycles = m_CPU->Step();
-        m_Timer->Tick(tCycles);
-        m_PPU->Step(tCycles);
-        m_APU->Step(tCycles);
+        Advance(m_CPU->Step());
     }
 }

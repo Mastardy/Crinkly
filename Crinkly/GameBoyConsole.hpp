@@ -1,14 +1,16 @@
 #pragma once
+#include <chrono>
+#include <cstdint>
 #include <memory>
 #include <string>
 
-#include "Hardware/APU.hpp"
+#include "Hardware/Audio/APU.hpp"
 #include "Hardware/Bus.hpp"
 #include "Hardware/Cartridge.hpp"
 #include "Hardware/CPU.hpp"
 #include "Hardware/Joypad.hpp"
-#include "Hardware/LCD.hpp"
-#include "Hardware/PPU.hpp"
+#include "Hardware/Graphics/LCD.hpp"
+#include "Hardware/Graphics/PPU.hpp"
 #include "Hardware/Timer.hpp"
 #include "Utility/Types.hpp"
 
@@ -38,7 +40,12 @@ public:
     void Run();
 
 private:
+    void Advance(U8 tCycles);
+
     bool m_Running = true;
+    std::chrono::steady_clock::time_point m_Start;
+    U64 m_TotalCycles = 0;
+    U64 m_SinceSync = 0;
 
     std::shared_ptr<Timer> m_Timer;
     std::shared_ptr<Joypad> m_Joypad;
