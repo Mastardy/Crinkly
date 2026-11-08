@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <array>
 #include <memory>
 
 #include "Bus.hpp"
@@ -19,6 +20,10 @@ private:
     static void DataCallback(ma_device* device, void* output, const void* input, ma_uint32 frameCount);
     void PullSamples(ma_device* device, void* output, const void* input, ma_uint32 frameCount);
     void ClearRegisters();
+    void OnWrite(Address address, Byte value);
+    void PowerOn();
+    void PowerOff();
+    void ClockFrameSequencer();
 
     std::unique_ptr<ma_device> m_Device;
     std::unique_ptr<ma_device_config> m_Config;
@@ -28,6 +33,7 @@ private:
     PulseChannel m_Ch2;
     WaveChannel m_Ch3;
     NoiseChannel m_Ch4;
+    std::array<AudioChannel*, 4> m_Channels{&m_Ch1, &m_Ch2, &m_Ch3, &m_Ch4};
 
     std::atomic<Byte> m_NR50 = 0;
     std::atomic<Byte> m_NR51 = 0;
@@ -35,4 +41,5 @@ private:
 
     int m_FrameCycles = 0;
     int m_FrameStep = 0;
+    bool m_PoweredOn = false;
 };

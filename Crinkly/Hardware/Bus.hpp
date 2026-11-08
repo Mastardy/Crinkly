@@ -16,6 +16,9 @@ private:
     static constexpr Size CARTRIDGE_RAM_SIZE = 8_Kb;
     static constexpr Size WORK_RAM_SIZE = 8_Kb;
 
+    static constexpr int WAVE_RAM_NORMAL = -1;
+    static constexpr int WAVE_RAM_BLOCKED = -2;
+
 public:
     Bus(Timer& timer, Joypad& joypad);
 
@@ -32,6 +35,8 @@ public:
 
     std::shared_ptr<Cartridge> m_Cartridge;
     std::function<void(Address, Byte)> m_OnWrite;
+
+    std::function<int()> m_WaveRamAccess;
 
 private:
     std::vector<Byte> m_VideoRAM;

@@ -9,54 +9,69 @@ PulseChannel::PulseChannel(Address reg0, bool sweepable, Bus& bus) : AudioChanne
     m_Volume = 0.0f;
 
     m_Sweepable = sweepable;
-    m_SweepTicks = 0;
-    m_SweepCycles = 0;
-    m_SweepPace = 0;
 }
 
-void PulseChannel::TriggerExtra()
+void PulseChannel::TriggerExtra(bool)
 {
     if (!m_Sweepable) return;
 
-    m_SweepTicks = 0;
-    m_SweepPace = (m_Bus.ReadRaw(m_NRx0) >> 4) & 0x07;
+    const auto NRx0 = m_Bus.ReadRaw(m_NRx0);
+    const auto pace = (NRx0 >> 4) & 0x07;
+    const auto shift = NRx0 & 0x07;
+
+    m_Shadow = m_Bus.ReadRaw(m_NRx3) | ((m_Bus.ReadRaw(m_NRx4) & 0x07) << 8);
+    m_SweepTimer = pace ? pace : 8;
+    m_SweepEnabled = pace != 0 || shift != 0;
+    m_NegateUsed = false;
+
+    if (shift != 0) SweepCalc();
 }
 
-void PulseChannel::Step(U8 tCycles)
+void PulseChannel::OnWrite(Address address, Byte value)
 {
-    Trigger();
+    AudioChannel::OnWrite(address, value);
 
-    if (!m_Sweepable) return;
+    if (m_Sweepable && address == m_NRx0 && m_NegateUsed && !(value & 0x08)) Disable();
+}
 
-    m_SweepCycles += tCycles;
-    if (m_SweepCycles < 32768) return;
-    m_SweepCycles -= 32768;
+void PulseChannel::PowerOff()
+{
+    AudioChannel::PowerOff();
+    m_SweepEnabled = false;
+    m_NegateUsed = false;
+}
 
-    auto NRx0 = m_Bus.ReadRaw(m_NRx0);
-    auto pace = (NRx0 >> 4) & 0x07;
-    auto down = (NRx0 >> 3) & 0x01;
-    auto step = NRx0 & 0x07;
+int PulseChannel::SweepCalc()
+{
+    const auto NRx0 = m_Bus.ReadRaw(m_NRx0);
+    const auto negate = (NRx0 & 0x08) != 0;
+    const auto delta = m_Shadow >> (NRx0 & 0x07);
 
-    auto NRx3 = m_Bus.ReadRaw(m_NRx3);
-    auto NRx4 = m_Bus.ReadRaw(m_NRx4);
-    auto period = NRx3 | ((NRx4 & 0x07) << 8);
-    auto next = down ? period - (period >> step) : period + (period >> step);
+    if (negate) m_NegateUsed = true;
 
-    auto idle = (m_SweepPace == 0);
-    if (!idle && ++m_SweepTicks < m_SweepPace) return;
-    m_SweepTicks = 0;
-    m_SweepPace = pace;
+    const auto next = negate ? m_Shadow - delta : m_Shadow + delta;
+    if (next > 0x7FF) Disable();
+    return next;
+}
 
-    if (!down && next > 0x7FF)
-    {
-        Disable();
-        return;
-    }
+void PulseChannel::ClockSweep()
+{
+    if (!m_Sweepable || --m_SweepTimer > 0) return;
 
-    if (idle) return;
+    const auto NRx0 = m_Bus.ReadRaw(m_NRx0);
+    const auto pace = (NRx0 >> 4) & 0x07;
+    const auto shift = NRx0 & 0x07;
 
+    m_SweepTimer = pace ? pace : 8;
+    if (!m_SweepEnabled || pace == 0) return;
+
+    const auto next = SweepCalc();
+    if (next > 0x7FF || shift == 0) return;
+
+    m_Shadow = next;
     m_Bus.WriteRaw(m_NRx3, static_cast<Byte>(next & 0xFF));
-    m_Bus.WriteRaw(m_NRx4, static_cast<Byte>((NRx4 & 0xF8) | (next >> 8)));
+    m_Bus.WriteRaw(m_NRx4, static_cast<Byte>((m_Bus.ReadRaw(m_NRx4) & 0xF8) | (next >> 8)));
+    SweepCalc();
 }
 
 void PulseChannel::PrepareSamples()

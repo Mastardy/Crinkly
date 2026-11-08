@@ -30,12 +30,28 @@ void Bus::InsertCartridge(const std::string& cartridge)
     m_Cartridge = std::make_shared<Cartridge>(cartridge);
 }
 
+static constexpr Byte APU_READ_MASKS[0x20] = {
+    0x80, 0x3F, 0x00, 0xFF, 0xBF, // NR10-NR14
+    0xFF, 0x3F, 0x00, 0xFF, 0xBF, // NR21-NR24
+    0x7F, 0xFF, 0x9F, 0xFF, 0xBF, // NR30-NR34
+    0xFF, 0xFF, 0x00, 0x00, 0xBF, // NR41-NR44
+    0x00, 0x00, 0x70, // NR50-NR52
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // FF27-FF2B 
+    0xFF, 0xFF, 0xFF, 0xFF // FF2C-FF2F
+};
+
 Byte Bus::Read(Address address)
 {
     const U8 mode = m_IO_Registers[0x41] & 0x03;
     if (address >= 0x8000 && address < 0xA000 && mode == 3) return 0xFF;
     if (address >= 0xFE00 && address < 0xFEA0 && mode >= 2) return 0xFF;
-    if (address == 0xFF26) return ReadRaw(address) | 0x70;
+    if (address >= 0xFF10 && address < 0xFF30) return ReadRaw(address) | APU_READ_MASKS[address - 0xFF10];
+    if (address >= 0xFF30 && address < 0xFF40 && m_WaveRamAccess)
+    {
+        const int index = m_WaveRamAccess();
+        if (index == WAVE_RAM_BLOCKED) return 0xFF;
+        if (index >= 0) address = static_cast<Address>(0xFF30 + index);
+    }
     return ReadRaw(address) | (address == 0xFF0F ? 0xE0 : 0);
 }
 
@@ -45,6 +61,18 @@ void Bus::Write(Address address, Byte value)
     if (address == 0xFF44) return;
     if (address >= 0x8000 && address < 0xA000 && mode == 3) return;
     if (address >= 0xFE00 && address < 0xFEA0 && mode >= 2) return;
+    if (address >= 0xFF10 && address <= 0xFF25 && !(m_IO_Registers[0x26] & 0x80))
+    {
+        const bool isLength = address == 0xFF11 || address == 0xFF16 || address == 0xFF1B || address == 0xFF20;
+        if (isLength && m_OnWrite) m_OnWrite(address, value);
+        return;
+    }
+    if (address >= 0xFF30 && address < 0xFF40 && m_WaveRamAccess)
+    {
+        const int index = m_WaveRamAccess();
+        if (index == WAVE_RAM_BLOCKED) return;
+        if (index >= 0) address = static_cast<Address>(0xFF30 + index);
+    }
     if (address == 0xFF26) value = (m_IO_Registers[0x26] & 0x0F) | (value & 0x80);
     if (address == 0xFF41) value = (m_IO_Registers[0x41] & 0x07) | (value & 0x78);
     WriteRaw(address, value);
@@ -58,11 +86,7 @@ Byte Bus::ReadRaw(Address address)
     else if (address < 0xC000) return m_Cartridge->Read(address);
     else if (address < 0xE000) return m_WorkRAM[address - 0xC000];
     else if (address >= 0xFE00 && address < 0xFEA0) return m_OAM[address - 0xFE00];
-    else if (address < 0xFF00)
-    {
-        // 0xFEA0–0xFEFF: unusable region. Reads return 0xFF on DMG hardware.
-        return 0xFF;
-    }
+    else if (address < 0xFF00) return 0xFF;
     else if (address == 0xFF00) return m_Joypad.Read();
     else if (address >= 0xFF04 && address < 0xFF08) return m_Timer.Read(address);
     else if (address < 0xFF80) return m_IO_Registers[address - 0xFF00];
@@ -113,7 +137,6 @@ void Bus::WriteRaw(Address address, Byte value)
     else if (address >= 0xFE00 && address < 0xFEA0) m_OAM[address - 0xFE00] = value;
     else if (address < 0xFF00)
     {
-        // unusable region, therefore ignored
     }
     else if (address == 0xFF00) m_Joypad.Write(value);
     else if (address >= 0xFF04 && address < 0xFF08) m_Timer.Write(address, value);

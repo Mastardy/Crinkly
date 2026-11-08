@@ -25,29 +25,56 @@ void AudioChannel::Disable()
     m_Bus.WriteRaw(0xFF26, m_Bus.ReadRaw(0xFF26) & ~m_StatusBit);
 }
 
+void AudioChannel::PowerOff()
+{
+    m_IsEnabled = false;
+    m_LengthEnabled = false;
+}
+
 void AudioChannel::Trigger()
 {
-    if (!DacOn()) Disable();
+    const bool wasEnabled = m_IsEnabled;
 
-    auto NRx4 = m_Bus.ReadRaw(m_NRx4);
-    if (!(NRx4 & 0x80)) return;
-
-    m_Bus.WriteRaw(m_NRx4, NRx4 & 0x7F);
-    if (!DacOn()) return;
+    if (m_Length == 0)
+    {
+        m_Length = m_MaxLength;
+        if (m_LengthEnabled && m_NextStepSkipsLength) m_Length--;
+    }
 
     m_IsEnabled = true;
     m_Bus.WriteRaw(0xFF26, m_Bus.ReadRaw(0xFF26) | m_StatusBit);
-    if (m_Length == 0) m_Length = m_MaxLength;
-    TriggerExtra();
+    TriggerExtra(wasEnabled);
+
+    if (!DacOn()) Disable();
 }
 
 void AudioChannel::OnWrite(Address address, Byte value)
 {
-    if (address == m_NRx1) m_Length = m_MaxLength - (value & (m_MaxLength - 1));
+    if (address == m_NRx1)
+    {
+        m_Length = m_MaxLength - (value & (m_MaxLength - 1));
+    }
+    else if (address == m_NRx0 || address == m_NRx2)
+    {
+        if (!DacOn()) Disable();
+    }
+    else if (address == m_NRx4)
+    {
+        const bool lengthEnabled = (value & 0x40) != 0;
+        const bool triggered = (value & 0x80) != 0;
+
+        if (!m_LengthEnabled && lengthEnabled && m_Length != 0 && m_NextStepSkipsLength)
+        {
+            if (--m_Length == 0 && !triggered) Disable();
+        }
+
+        m_LengthEnabled = lengthEnabled;
+        if (triggered) Trigger();
+    }
 }
 
 void AudioChannel::ClockLength()
 {
-    if (!(m_Bus.ReadRaw(m_NRx4) & 0x40) || m_Length == 0) return;
+    if (!m_LengthEnabled || m_Length == 0) return;
     if (--m_Length == 0) Disable();
 }

@@ -8,6 +8,9 @@ APU::APU(Bus& bus) : m_Bus(bus),
                      m_Ch3(0xFF1A, bus),
                      m_Ch4(0xFF1F, bus)
 {
+    m_Bus.m_OnWrite = [this](Address a, Byte v) { OnWrite(a, v); };
+    m_Bus.m_WaveRamAccess = [this] { return m_Ch3.RamAccess(); };
+
     m_Device = std::make_unique<ma_device>();
     m_Config = std::make_unique<ma_device_config>(ma_device_type_playback);
 
@@ -24,14 +27,6 @@ APU::APU(Bus& bus) : m_Bus(bus),
     }
 
     ma_device_start(m_Device.get());
-
-    m_Bus.m_OnWrite = [this](Address a, Byte v)
-    {
-        m_Ch1.OnWrite(a, v);
-        m_Ch2.OnWrite(a, v);
-        m_Ch3.OnWrite(a, v);
-        m_Ch4.OnWrite(a, v);
-    };
 }
 
 APU::~APU()
@@ -94,23 +89,62 @@ void APU::ClearRegisters()
     }
 }
 
+void APU::OnWrite(Address address, Byte value)
+{
+    if (address != 0xFF26)
+    {
+        for (auto* channel : m_Channels) channel->OnWrite(address, value);
+        return;
+    }
+
+    const bool on = (value & 0x80) != 0;
+    if (on == m_PoweredOn) return;
+
+    m_PoweredOn = on;
+    if (on) PowerOn();
+    else PowerOff();
+}
+
+void APU::PowerOn()
+{
+    m_FrameStep = 0;
+    for (auto* channel : m_Channels) channel->SetNextStepSkipsLength(false);
+}
+
+void APU::PowerOff()
+{
+    for (auto* channel : m_Channels) channel->PowerOff();
+    ClearRegisters();
+    m_Bus.WriteRaw(0xFF26, 0x00);
+}
+
+void APU::ClockFrameSequencer()
+{
+    const int step = m_FrameStep;
+    m_FrameStep = (m_FrameStep + 1) & 7;
+
+    if ((step & 1) == 0)
+    {
+        for (auto* channel : m_Channels) channel->ClockLength();
+    }
+
+    if (step == 2 || step == 6) m_Ch1.ClockSweep();
+
+    const bool nextSkipsLength = (m_FrameStep & 1) != 0;
+    for (auto* channel : m_Channels) channel->SetNextStepSkipsLength(nextSkipsLength);
+}
+
 void APU::Step(U8 tCycles)
 {
-    m_Ch1.Step(tCycles);
-    m_Ch2.Step(tCycles);
-    m_Ch3.Step(tCycles);
-    m_Ch4.Step(tCycles);
+    for (auto* channel : m_Channels) channel->Step(tCycles);
 
-    m_FrameCycles += tCycles;
-    if (m_FrameCycles >= 8192)
+    if (m_PoweredOn)
     {
-        m_FrameCycles -= 8192;
-        if ((++m_FrameStep & 1) == 0)
+        m_FrameCycles += tCycles;
+        while (m_FrameCycles >= 8192)
         {
-            m_Ch1.ClockLength();
-            m_Ch2.ClockLength();
-            m_Ch3.ClockLength();
-            m_Ch4.ClockLength();
+            m_FrameCycles -= 8192;
+            ClockFrameSequencer();
         }
     }
 
@@ -121,6 +155,4 @@ void APU::Step(U8 tCycles)
     if (m_NR50.load() != NR50) m_NR50.store(NR50);
     if (m_NR51.load() != NR51) m_NR51.store(NR51);
     if (m_NR52.load() != NR52) m_NR52.store(NR52);
-
-    if ((NR52 & 0x80) == 0) ClearRegisters();
 }

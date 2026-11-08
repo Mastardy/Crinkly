@@ -10,14 +10,9 @@ NoiseChannel::NoiseChannel(Address reg0, Bus& bus) : AudioChannel(reg0, bus)
     m_ReSeed = false;
 }
 
-void NoiseChannel::TriggerExtra()
+void NoiseChannel::TriggerExtra(bool)
 {
     m_ReSeed = true;
-}
-
-void NoiseChannel::Step(U8 tCycles)
-{
-    Trigger();
 }
 
 void NoiseChannel::PrepareSamples()

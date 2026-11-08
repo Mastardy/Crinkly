@@ -11,18 +11,20 @@ public:
     virtual ~AudioChannel() = default;
 
     void Disable();
-    void Trigger();
     void ClockLength();
+    void SetNextStepSkipsLength(bool skips) { m_NextStepSkipsLength = skips; }
 
-    void OnWrite(Address address, Byte value);
-
+    virtual void OnWrite(Address address, Byte value);
+    virtual void PowerOff();
     virtual bool DacOn();
 
-    virtual void TriggerExtra() = 0;
-    virtual void Step(U8 tCycles) = 0;
+    virtual void TriggerExtra(bool wasEnabled) = 0;
+    virtual void Step(U8 tCycles) {}
     virtual float PullSample() = 0;
 
 protected:
+    void Trigger();
+
     Address m_NRx0;
     Address m_NRx1;
     Address m_NRx2;
@@ -32,6 +34,8 @@ protected:
     int m_Length;
     int m_MaxLength;
     bool m_IsEnabled;
+    bool m_LengthEnabled = false;
+    bool m_NextStepSkipsLength = false;
     Byte m_StatusBit;
 
     Bus& m_Bus;

@@ -51,6 +51,7 @@ void CPU::Bootstrap()
     m_Bus.Write(0xFF05, 0x00);
     m_Bus.Write(0xFF06, 0x00);
     m_Bus.Write(0xFF07, 0x00);
+    m_Bus.Write(0xFF26, 0xF1);
     m_Bus.Write(0xFF10, 0x80);
     m_Bus.Write(0xFF11, 0xBF);
     m_Bus.Write(0xFF12, 0xF3);
@@ -68,7 +69,6 @@ void CPU::Bootstrap()
     m_Bus.Write(0xFF23, 0xBF);
     m_Bus.Write(0xFF24, 0x77);
     m_Bus.Write(0xFF25, 0xF3);
-    m_Bus.Write(0xFF26, 0xF1);
     m_Bus.Write(0xFF40, 0x91);
     m_Bus.Write(0xFF42, 0x00);
     m_Bus.Write(0xFF43, 0x00);
@@ -362,7 +362,7 @@ U8 CPU::ExecuteInstruction()
         const auto pending = m_Bus.Read(0xFF0F) & m_Bus.Read(0xFFFF) & 0x1F;
         if (pending == 0)
             return 4;
-        m_Halted = false; // IME=false HALT bug: exit halt, execute instruction after HALT
+        m_Halted = false;
     }
 
     /*

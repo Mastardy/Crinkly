@@ -8,8 +8,7 @@ class NoiseChannel : public AudioChannel
 public:
     NoiseChannel(Address reg0, Bus& bus);
 
-    void TriggerExtra() override;
-    void Step(U8 tCycles) override;
+    void TriggerExtra(bool wasEnabled) override;
 
     void PrepareSamples();
     float PullSample() override;
